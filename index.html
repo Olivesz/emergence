@@ -286,6 +286,10 @@
 
   // Physarum (slime mold): particle agents on a shared chemoattractant trail (reuses u/u2)
   var agX, agY, agA, agN = 0, food = [], physKind = "network", physWalls = false;
+  // Maze solver: the organism grows out from the START, and the moment it reaches the
+  // END the shortest connecting path is revealed. Deterministic (breadth-first growth).
+  var mazeDist, mazeQueue, mazeHead = 0, mazeTail = 0, mazeSolved = false, mazePath = null;
+  var mazeA = 0, mazeB = 0, mazeExplored = 0, mazeTime = 0;
 
   // Abelian sandpile (self-organized criticality): heights in `age`, avalanches via a stack
   var sandKind = "pile", lastAval = 0, sandStack;
@@ -424,11 +428,40 @@
     }
     for (var gy=0;gy<gN;gy++) for (var gx=0;gx<gN;gx++){ if (Gopen[gidx(gx,gy)]) continue;
       for (var by=0;by<B;by++) for (var bx=0;bx<B;bx++){ var wx=x0+gx*B+bx, wy=y0+gy*B+by; if (wx>=0&&wy>=0&&wx<cols&&wy<rows) state[idx(wx,wy)]=1; } }
-    food.push({ x:x0+B+(B>>1), y:y0+B+(B>>1) });
-    food.push({ x:x0+(2*mc-1)*B+(B>>1), y:y0+(2*mc-1)*B+(B>>1) });
-    agN = Math.min(14000, Math.round(span*span*0.05));
-    agX=new Float32Array(agN); agY=new Float32Array(agN); agA=new Float32Array(agN);
-    for (var i=0;i<agN;i++){ var t=0,ox,oy; do { ox=x0+((Math.random()*span)|0); oy=y0+((Math.random()*span)|0); t++; } while (t<24 && (ox<0||oy<0||ox>=cols||oy>=rows||state[idx(ox,oy)]===1)); agX[i]=ox+0.5; agY[i]=oy+0.5; agA[i]=Math.random()*Math.PI*2; }
+    // start / end life-points at opposite corners of the maze
+    var ax=x0+B+(B>>1), ay=y0+B+(B>>1), bx=x0+(2*mc-1)*B+(B>>1), by=y0+(2*mc-1)*B+(B>>1);
+    mazeA=ay*cols+ax; mazeB=by*cols+bx;
+    if (!mazeDist || mazeDist.length!==cols*rows){ mazeDist=new Int32Array(cols*rows); mazeQueue=new Int32Array(cols*rows); }
+    mazeDist.fill(-1); u.fill(0);
+    mazeHead=0; mazeTail=0; mazeQueue[mazeTail++]=mazeA; mazeDist[mazeA]=0; u[mazeA]=1;
+    mazeSolved=false; mazePath=null; mazeExplored=1; mazeTime=0; agN=0;
+  }
+  // Breadth-first growth from the start; reaching the end reveals the shortest path.
+  function stepMazeSolve(times){
+    mazeTime += times;
+    if (mazeSolved) return;
+    var budget = Math.max(8, times*10), c=cols, r=rows;
+    while (budget-- > 0 && mazeHead < mazeTail){
+      var i=mazeQueue[mazeHead++], x=i%c, y=(i/c)|0, d=mazeDist[i], nb;
+      if (x>0){       nb=i-1; if (state[nb]===0 && mazeDist[nb]<0){ mazeDist[nb]=d+1; u[nb]=1; mazeQueue[mazeTail++]=nb; mazeExplored++; if (nb===mazeB){ buildMazePath(); break; } } }
+      if (x<c-1){     nb=i+1; if (state[nb]===0 && mazeDist[nb]<0){ mazeDist[nb]=d+1; u[nb]=1; mazeQueue[mazeTail++]=nb; mazeExplored++; if (nb===mazeB){ buildMazePath(); break; } } }
+      if (y>0){       nb=i-c; if (state[nb]===0 && mazeDist[nb]<0){ mazeDist[nb]=d+1; u[nb]=1; mazeQueue[mazeTail++]=nb; mazeExplored++; if (nb===mazeB){ buildMazePath(); break; } } }
+      if (y<r-1){     nb=i+c; if (state[nb]===0 && mazeDist[nb]<0){ mazeDist[nb]=d+1; u[nb]=1; mazeQueue[mazeTail++]=nb; mazeExplored++; if (nb===mazeB){ buildMazePath(); break; } } }
+    }
+    steps = mazeExplored;
+  }
+  function buildMazePath(){
+    mazeSolved=true; mazePath=[]; var c=cols, cur=mazeB, guard=0, cap=cols*rows;
+    while (cur!==mazeA && guard++ < cap){
+      mazePath.push(cur);
+      var x=cur%c, y=(cur/c)|0, d=mazeDist[cur], nx=-1;
+      if (x>0 && mazeDist[cur-1]===d-1) nx=cur-1;
+      else if (x<c-1 && mazeDist[cur+1]===d-1) nx=cur+1;
+      else if (y>0 && mazeDist[cur-c]===d-1) nx=cur-c;
+      else if (y<rows-1 && mazeDist[cur+c]===d-1) nx=cur+c;
+      if (nx<0) break; cur=nx;
+    }
+    mazePath.push(mazeA);
   }
 
   // ---- steps ----
@@ -499,7 +532,7 @@
   // ---- render (into the offscreen world, then composite through the camera) ----
   function render() {
     wctx.setTransform(1,0,0,1,0,0); wctx.fillStyle=VOID; wctx.fillRect(0,0,worldPxW,worldPxH); pop=0;
-    if (mode==="ant") renderTurmite(); else if (mode==="life") renderLife(); else if (mode==="grazers") renderGrazers(); else if (mode==="rd") renderRD(); else if (mode==="lenia") renderLenia(); else if (mode==="phys") renderPhys(); else renderSand();
+    if (mode==="ant") renderTurmite(); else if (mode==="life") renderLife(); else if (mode==="grazers") renderGrazers(); else if (mode==="rd") renderRD(); else if (mode==="lenia") renderLenia(); else if (mode==="phys") { if (physKind==="maze") renderMazeSolve(); else renderPhys(); } else renderSand();
     ctx.setTransform(dpr,0,0,dpr,0,0); ctx.fillStyle=VOID; ctx.fillRect(0,0,canvas.clientWidth,canvas.clientHeight);
     ctx.imageSmoothingEnabled=true;
     var s=view.scale; ctx.drawImage(wc, 0,0,worldPxW,worldPxH, -view.x*s, -view.y*s, worldPxW*s, worldPxH*s);
@@ -536,6 +569,26 @@
     for (var f=0; f<food.length; f++){ var px=food[f].x*cell+cell/2, py=food[f].y*cell+cell/2, rr=Math.max(cell*3,10); var g=wctx.createRadialGradient(px,py,0,px,py,rr); g.addColorStop(0,"rgba(190,247,255,0.95)"); g.addColorStop(0.4,"rgba(90,220,255,0.5)"); g.addColorStop(1,"rgba(90,220,255,0)"); wctx.fillStyle=g; wctx.beginPath(); wctx.arc(px,py,rr,0,Math.PI*2); wctx.fill(); }
     wctx.globalCompositeOperation="source-over";
   }
+  function drawFoodNode(i, color){
+    var px=(i%cols)*cell+cell/2, py=((i/cols)|0)*cell+cell/2, rr=Math.max(cell*3.5,12);
+    var g=wctx.createRadialGradient(px,py,0,px,py,rr); g.addColorStop(0,"rgba(255,255,255,0.95)"); g.addColorStop(0.35,hexA(color,0.75)); g.addColorStop(1,hexA(color,0));
+    wctx.globalCompositeOperation="lighter"; wctx.fillStyle=g; wctx.beginPath(); wctx.arc(px,py,rr,0,Math.PI*2); wctx.fill(); wctx.globalCompositeOperation="source-over";
+  }
+  function renderMazeSolve(){
+    wctx.fillStyle="#191c26"; for (var wy=0;wy<rows;wy++) for (var wx=0;wx<cols;wx++){ if (state[idx(wx,wy)]===1) wctx.fillRect(wx*cell,wy*cell,cell,cell); }
+    // explored corridors: bright growing frontier (u fading) over a dim explored floor
+    var floor = mazeSolved ? 0.10 : 0.32;
+    for (var y=0;y<rows;y++) for (var x=0;x<cols;x++){ var i=idx(x,y); if (mazeDist[i]>=0){ var b=u[i]; if (b<floor) b=floor; if (b>1) b=1; wctx.fillStyle=PHYS_LUT[(b*255)|0]; wctx.fillRect(x*cell,y*cell,cell,cell); } }
+    for (var k=0;k<u.length;k++){ if (u[k]>floor) u[k]*=0.93; }
+    if (mazeSolved && mazePath){
+      var pulse=0.62+0.38*Math.sin(mazeTime*0.12);
+      wctx.globalCompositeOperation="lighter"; wctx.globalAlpha=pulse; wctx.fillStyle="#fff6c0";
+      for (var p=0;p<mazePath.length;p++){ var pi=mazePath[p]; wctx.fillRect((pi%cols)*cell-1, ((pi/cols)|0)*cell-1, cell+2, cell+2); }
+      wctx.globalAlpha=1; wctx.globalCompositeOperation="source-over";
+      pop = mazePath.length;
+    } else pop = mazeTail - mazeHead;
+    drawFoodNode(mazeA, "#34d399"); drawFoodNode(mazeB, "#ff3d81");
+  }
   function renderSand(){
     for (var y=0;y<rows;y++) for (var x=0;x<cols;x++){ var hh=age[idx(x,y)]; if (hh){ wctx.fillStyle = SAND_COLORS[hh>3?3:hh]; wctx.fillRect(x*cell,y*cell,cell,cell); } }
     pop = lastAval;
@@ -547,7 +600,7 @@
   function speedSteps(){ var vv=parseInt(document.getElementById("speed").value,10); return Math.max(1, Math.round(Math.pow(vv/6,2))+1); }
   var raf;
   function tick(){ try { if (running) advance(); render(); updateReadouts(); } catch(e){} raf=requestAnimationFrame(tick); }
-  function advance(){ if (mode==="ant") stepTurmite(speedSteps()); else if (mode==="life"){ var f=Math.max(1,Math.round(speedSteps()/8)); for (var k=0;k<f;k++) stepLife(); } else if (mode==="grazers") stepGrazers(speedSteps()); else if (mode==="rd"){ var it=Math.min(24,Math.max(4,speedSteps())); stepRD(it); } else if (mode==="lenia"){ var ls=Math.max(1,Math.min(4,Math.round(speedSteps()/6))); stepLenia(ls); } else if (mode==="phys"){ var ps=Math.max(1,Math.min(4,Math.round(speedSteps()/8))); stepPhys(ps); } else { stepSand(speedSteps()*4); } }
+  function advance(){ if (mode==="ant") stepTurmite(speedSteps()); else if (mode==="life"){ var f=Math.max(1,Math.round(speedSteps()/8)); for (var k=0;k<f;k++) stepLife(); } else if (mode==="grazers") stepGrazers(speedSteps()); else if (mode==="rd"){ var it=Math.min(24,Math.max(4,speedSteps())); stepRD(it); } else if (mode==="lenia"){ var ls=Math.max(1,Math.min(4,Math.round(speedSteps()/6))); stepLenia(ls); } else if (mode==="phys"){ if (physKind==="maze") stepMazeSolve(Math.max(1,Math.round(speedSteps()/3))); else { var ps=Math.max(1,Math.min(4,Math.round(speedSteps()/8))); stepPhys(ps); } } else { stepSand(speedSteps()*4); } }
 
   // ---- readouts + reveal ----
   var stepVal=document.getElementById("stepVal"), popVal=document.getElementById("popVal"), reveal=document.getElementById("reveal");
@@ -576,7 +629,7 @@
     else if (m==="grazers"){ stepLab.textContent="Ant steps"; popLab.textContent="Cells alive"; }
     else if (m==="rd"){ stepLab.textContent="Iterations"; popLab.textContent="Reagent"; }
     else if (m==="lenia"){ stepLab.textContent="Time"; popLab.textContent="Biomass"; }
-    else if (m==="phys"){ stepLab.textContent="Time"; popLab.textContent="Network"; }
+    else if (m==="phys"){ if (physKind==="maze"){ stepLab.textContent="Explored"; popLab.textContent="Path"; } else { stepLab.textContent="Time"; popLab.textContent="Network"; } }
     else { stepLab.textContent="Grains"; popLab.textContent="Last avalanche"; }
     genHint.textContent = m==="grazers"?"ants read life · life reshapes ants" : m==="rd"?"two chemicals · feed & kill" : m==="lenia"?"continuous life · a smooth Game of Life" : m==="phys"?"no brain · a chemical trail that thinks" : m==="sand"?"one rule · avalanches at every scale" : "";
     reset();
@@ -599,7 +652,7 @@
   document.querySelectorAll("#plantMode .seed").forEach(function(s){ s.addEventListener("click", function(){ plantMode=s.dataset.plant; document.querySelectorAll("#plantMode .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); }); });
   document.querySelectorAll("#rdSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ rdKind=s.dataset.rd; document.querySelectorAll("#rdSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); reset(); }); });
   document.querySelectorAll("#leniaSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ leniaSeedKind=s.dataset.lenia; document.querySelectorAll("#leniaSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); reset(); }); });
-  document.querySelectorAll("#physSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ physKind=s.dataset.phys; document.querySelectorAll("#physSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); reset(); }); });
+  document.querySelectorAll("#physSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ physKind=s.dataset.phys; document.querySelectorAll("#physSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); if (physKind==="maze"){ stepLab.textContent="Explored"; popLab.textContent="Path"; } else { stepLab.textContent="Time"; popLab.textContent="Network"; } reset(); }); });
   document.querySelectorAll("#sandSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ sandKind=s.dataset.sand; document.querySelectorAll("#sandSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); reset(); }); });
 
   document.getElementById("zoomIn").addEventListener("click", function(){ zoomAt(canvas.clientWidth/2, canvas.clientHeight/2, 1.3); });
