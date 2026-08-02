@@ -388,7 +388,8 @@
   }
 
   function seedPhys(kind){
-    u.fill(0); u2.fill(0); food = [];
+    u.fill(0); u2.fill(0); food = []; physWalls = false;
+    if (kind==="maze"){ seedPhysMaze(); return; }
     agN = Math.min(24000, Math.round(cols*rows*0.10));
     agX = new Float32Array(agN); agY = new Float32Array(agN); agA = new Float32Array(agN);
     var cx = cols/2, cy = rows/2;
@@ -404,6 +405,31 @@
   }
 
   function seedSand(){ age.fill(0); lastAval = 0; if (!sandStack || sandStack.length < cols*rows) sandStack = new Int32Array(cols*rows); }
+
+  // Build a maze (recursive backtracker) into `state` as walls, with food at two corners.
+  function seedPhysMaze(){
+    physWalls = true; state.fill(0);
+    var S = Math.round(Math.min(visSpan, visSpan*rows/cols)*0.92);
+    var mc = 7, gN = 2*mc+1, B = Math.max(6, Math.floor(S/gN)), span = B*gN;
+    var x0 = (cols-span)>>1, y0 = (rows-span)>>1;
+    var Gopen = new Uint8Array(gN*gN); function gidx(x,y){ return y*gN+x; }
+    var visited = new Uint8Array(mc*mc), stack=[0], mdx=[1,-1,0,0], mdy=[0,0,1,-1];
+    visited[0]=1; Gopen[gidx(1,1)]=1;
+    while (stack.length){
+      var cur=stack[stack.length-1], ci=cur%mc, cj=(cur/mc)|0, opts=[];
+      for (var d=0;d<4;d++){ var ni=ci+mdx[d], nj=cj+mdy[d]; if (ni>=0&&nj>=0&&ni<mc&&nj<mc && !visited[nj*mc+ni]) opts.push(d); }
+      if (!opts.length){ stack.pop(); continue; }
+      var dd=opts[(Math.random()*opts.length)|0], ai=ci+mdx[dd], aj=cj+mdy[dd];
+      visited[aj*mc+ai]=1; Gopen[gidx(2*ai+1,2*aj+1)]=1; Gopen[gidx(ci+ai+1, cj+aj+1)]=1; stack.push(aj*mc+ai);
+    }
+    for (var gy=0;gy<gN;gy++) for (var gx=0;gx<gN;gx++){ if (Gopen[gidx(gx,gy)]) continue;
+      for (var by=0;by<B;by++) for (var bx=0;bx<B;bx++){ var wx=x0+gx*B+bx, wy=y0+gy*B+by; if (wx>=0&&wy>=0&&wx<cols&&wy<rows) state[idx(wx,wy)]=1; } }
+    food.push({ x:x0+B+(B>>1), y:y0+B+(B>>1) });
+    food.push({ x:x0+(2*mc-1)*B+(B>>1), y:y0+(2*mc-1)*B+(B>>1) });
+    agN = Math.min(14000, Math.round(span*span*0.05));
+    agX=new Float32Array(agN); agY=new Float32Array(agN); agA=new Float32Array(agN);
+    for (var i=0;i<agN;i++){ var t=0,ox,oy; do { ox=x0+((Math.random()*span)|0); oy=y0+((Math.random()*span)|0); t++; } while (t<24 && (ox<0||oy<0||ox>=cols||oy>=rows||state[idx(ox,oy)]===1)); agX[i]=ox+0.5; agY[i]=oy+0.5; agA[i]=Math.random()*Math.PI*2; }
+  }
 
   // ---- steps ----
   // Sandpile: drop a grain; any cell reaching 4 topples one grain to each neighbor,
@@ -436,27 +462,30 @@
   // Physarum: each agent sniffs the trail (u) at three points ahead, steers toward the
   // strongest, moves, and deposits. The trail diffuses and evaporates. Networks emerge.
   function stepPhys(times){
-    var SA=0.393, RA=0.393, SD=Math.max(6, Math.round(cols/45)), DEP=0.9, DECAY=0.90, FOOD=6.0, MAXT=10.0, c=cols, r=rows;
+    var SA=0.393, RA=0.393, SD=physWalls?5:Math.max(6, Math.round(cols/45)), DEP=0.9, DECAY=physWalls?0.86:0.90, FOOD=6.0, MAXT=10.0, c=cols, r=rows, walls=physWalls;
     for (var s=0;s<times;s++){
       for (var fi=0; fi<food.length; fi++){ var fx=food[fi].x, fy=food[fi].y; for (var dy=-1;dy<=1;dy++) for (var dx=-1;dx<=1;dx++){ var qx=(fx+dx+c)%c, qy=(fy+dy+r)%r; u[qy*c+qx]=FOOD; } }
       for (var i=0;i<agN;i++){
         var x=agX[i], y=agY[i], a=agA[i];
         var F=sampleTrail(x,y,a,0,SD), L=sampleTrail(x,y,a,-SA,SD), Rr=sampleTrail(x,y,a,SA,SD);
         if (F>L && F>Rr){} else if (F<L && F<Rr){ a += (Math.random()<0.5?-RA:RA); } else if (L>Rr){ a -= RA; } else if (Rr>L){ a += RA; }
-        x += Math.cos(a); y += Math.sin(a);
-        if (x<0) x+=c; else if (x>=c) x-=c; if (y<0) y+=r; else if (y>=r) y-=r;
+        var nx=x+Math.cos(a), ny=y+Math.sin(a);
+        if (nx<0) nx+=c; else if (nx>=c) nx-=c; if (ny<0) ny+=r; else if (ny>=r) ny-=r;
+        if (walls && state[((ny|0)*c)+(nx|0)]===1){ a += (Math.random()<0.5?-1:1)*RA*2.2; }  // blocked: turn, don't move
+        else { x=nx; y=ny; }
         agX[i]=x; agY[i]=y; agA[i]=a;
-        var j=((y|0)*c)+(x|0), nv=u[j]+DEP; u[j]=nv>MAXT?MAXT:nv;
+        var j=((y|0)*c)+(x|0); if (!(walls && state[j]===1)){ var nv=u[j]+DEP; u[j]=nv>MAXT?MAXT:nv; }
       }
       diffusePhys(DECAY); steps++;
     }
   }
-  function sampleTrail(x,y,a,off,SD){ var sx=x+Math.cos(a+off)*SD, sy=y+Math.sin(a+off)*SD; var ix=(Math.floor(sx)%cols+cols)%cols, iy=(Math.floor(sy)%rows+rows)%rows; return u[iy*cols+ix]; }
+  function sampleTrail(x,y,a,off,SD){ var sx=x+Math.cos(a+off)*SD, sy=y+Math.sin(a+off)*SD; var ix=(Math.floor(sx)%cols+cols)%cols, iy=(Math.floor(sy)%rows+rows)%rows; var k=iy*cols+ix; if (physWalls && state[k]===1) return -1; return u[k]; }
   function diffusePhys(decay){
-    var c=cols, r=rows;
-    for (var y=0;y<r;y++){ var yUp=(y-1+r)%r, yDn=(y+1)%r; for (var x=0;x<c;x++){ var xL=(x-1+c)%c, xR=(x+1)%c;
-      var sum=u[yUp*c+xL]+u[yUp*c+x]+u[yUp*c+xR]+u[y*c+xL]+u[y*c+x]+u[y*c+xR]+u[yDn*c+xL]+u[yDn*c+x]+u[yDn*c+xR];
-      u2[y*c+x]=(sum/9)*decay; } }
+    var c=cols, r=rows, walls=physWalls;
+    for (var y=0;y<r;y++){ var yUp=(y-1+r)%r, yDn=(y+1)%r; for (var x=0;x<c;x++){ var xL=(x-1+c)%c, xR=(x+1)%c, k=y*c+x;
+      if (walls && state[k]===1){ u2[k]=0; continue; }
+      var sum=u[yUp*c+xL]+u[yUp*c+x]+u[yUp*c+xR]+u[y*c+xL]+u[k]+u[y*c+xR]+u[yDn*c+xL]+u[yDn*c+x]+u[yDn*c+xR];
+      u2[k]=(sum/9)*decay; } }
     var t=u; u=u2; u2=t;
   }
 
@@ -501,6 +530,7 @@
   function renderRD(){ for (var y=0;y<rows;y++) for (var x=0;x<cols;x++){ var i=idx(x,y), val=v[i]; if (val>0.02){ var li=(val*560)|0; if (li>255) li=255; wctx.fillStyle=RD_LUT[li]; wctx.fillRect(x*cell,y*cell,cell,cell); if (val>0.2) pop++; } } }
   function renderLenia(){ var cw=worldPxW/LW, ch=worldPxH/LH, cwc=Math.ceil(cw)+1, chc=Math.ceil(ch)+1; for (var y=0;y<LH;y++) for (var x=0;x<LW;x++){ var val=lenia[y*LW+x]; if (val>0.02){ var li=(val*255)|0; if (li>255) li=255; wctx.fillStyle=LENIA_LUT[li]; wctx.fillRect(x*cw,y*ch,cwc,chc); if (val>0.25) pop++; } } }
   function renderPhys(){
+    if (physWalls){ wctx.fillStyle="#191c26"; for (var wy=0;wy<rows;wy++) for (var wx=0;wx<cols;wx++){ if (state[idx(wx,wy)]===1) wctx.fillRect(wx*cell,wy*cell,cell,cell); } }
     for (var y=0;y<rows;y++) for (var x=0;x<cols;x++){ var val=u[idx(x,y)]; if (val>0.05){ var li=(val*40)|0; if (li>255) li=255; wctx.fillStyle=PHYS_LUT[li]; wctx.fillRect(x*cell,y*cell,cell,cell); if (val>0.4) pop++; } }
     wctx.globalCompositeOperation="lighter";
     for (var f=0; f<food.length; f++){ var px=food[f].x*cell+cell/2, py=food[f].y*cell+cell/2, rr=Math.max(cell*3,10); var g=wctx.createRadialGradient(px,py,0,px,py,rr); g.addColorStop(0,"rgba(190,247,255,0.95)"); g.addColorStop(0.4,"rgba(90,220,255,0.5)"); g.addColorStop(1,"rgba(90,220,255,0)"); wctx.fillStyle=g; wctx.beginPath(); wctx.arc(px,py,rr,0,Math.PI*2); wctx.fill(); }
