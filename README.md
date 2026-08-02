@@ -14,9 +14,10 @@ and playable in the browser with no build step and no dependencies.
 
 | Act | System | The "wow" |
 |-----|--------|-----------|
-| **I — The Highway** | Langton's Ant (generalized turmites) | ~10,000 steps of chaos, then a self-built periodic *highway* appears from nowhere. The rule field turns this into an infinite turmite explorer (`RL`, `RLR`, `LLRR`, …). |
+| **I — The Turmites** | Langton's Ant & generalized turmites | ~10,000 steps of chaos, then a self-built periodic *highway* appears from nowhere. An editable rule string makes it an infinite explorer (`RL`, `RLR`, `LLRR`, …), and **multiple ants** share one grid — their highways collide and interfere. |
 | **II — The Living Field** | Conway's Game of Life | Cells that breathe. Age-colored (newborn cyan → ancient magenta). R-pentomino, Gosper glider gun, pulsar, or paint your own. |
 | **III — The Grazers** | Hybrid (the novel one) | Ants roaming a *living* Conway field. Each ant reads the **same alive/dead bit** Conway reads and turns on it — the two automata provably reading the same state. |
+| **IV — Chemical Garden** | Gray–Scott reaction–diffusion | Two virtual chemicals feed, react, and diffuse. A field of near-uniform noise **self-organizes into coral, cell mitosis, and fingerprints** — Turing's morphogenesis, live. Drag to inject reagent. |
 
 ## Why the thesis holds in the code
 
@@ -66,13 +67,14 @@ Act III.
 
 ## Roadmap
 
-Emergence is *rule-dependent*: change the rule, change the miracle. Planned acts push
-toward genuine apparent **aliveness**:
+Emergence is *rule-dependent*: change the rule, change the miracle. The aliveness ladder
+climbs from mechanical (the ant) → organic (chemistry that grows) → genuinely alive.
+Next rungs:
 
-- **Lenia** — continuous-state CA whose "creatures" (orbium) swim, turn, and heal like plankton.
-- **Reaction–diffusion** (Gray–Scott) — organic Turing patterns: coral, fingerprints, cell mitosis.
+- **Lenia** — continuous-state CA whose "creatures" (orbium) swim, turn, and heal like plankton. The crown jewel.
 - **True turmites** — an ant with internal states → spiral and fractal builders far beyond `RL`.
-- **Multi-ant interaction** — ants that collide, interfere, and dismantle each other's highways.
+- **Hexagonal / triangular lattices** — the ant on other grids, with new symmetries.
+- **Reaction–diffusion parameter sweep** — a continuous (feed, kill) map to roam the whole Pearson zoo.
 
 ## License
 
