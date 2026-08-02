@@ -18,6 +18,7 @@ and playable in the browser with no build step and no dependencies.
 | **II — The Living Field** | Conway's Game of Life | Cells that breathe. Age-colored (newborn cyan → ancient magenta). R-pentomino, Gosper glider gun, pulsar, or paint your own. |
 | **III — The Grazers** | Hybrid (the novel one) | Ants roaming a *living* Conway field. Each ant reads the **same alive/dead bit** Conway reads and turns on it — the two automata provably reading the same state. |
 | **IV — Chemical Garden** | Gray–Scott reaction–diffusion | Two virtual chemicals feed, react, and diffuse. A field of near-uniform noise **self-organizes into coral, cell mitosis, and fingerprints** — Turing's morphogenesis, live. Drag to inject reagent. |
+| **V — The Creatures** | Lenia (continuous CA) | Conway's Life made **continuous** — real-valued cells, a smooth ring kernel, a bell-curve growth function. An ecosystem of glowing organisms **self-assembles out of random static** and swims, morphs, and divides. Runs on its own coarse grid (kernel convolution is costly), rendered scaled up. Drag to breathe life into the void. |
 
 ## Why the thesis holds in the code
 
@@ -68,13 +69,14 @@ Act III.
 ## Roadmap
 
 Emergence is *rule-dependent*: change the rule, change the miracle. The aliveness ladder
-climbs from mechanical (the ant) → organic (chemistry that grows) → genuinely alive.
+climbs from mechanical (the ant) → organic (chemistry that grows) → genuinely alive (Lenia).
 Next rungs:
 
-- **Lenia** — continuous-state CA whose "creatures" (orbium) swim, turn, and heal like plankton. The crown jewel.
+- **A named Lenia bestiary** — hand-placed orbium / creatures with known seeds, so you can watch a single organism swim across an empty field.
 - **True turmites** — an ant with internal states → spiral and fractal builders far beyond `RL`.
 - **Hexagonal / triangular lattices** — the ant on other grids, with new symmetries.
 - **Reaction–diffusion parameter sweep** — a continuous (feed, kill) map to roam the whole Pearson zoo.
+- **Lenia parameter dials** — live μ / σ / kernel controls to discover new life-forms.
 
 ## License
 
