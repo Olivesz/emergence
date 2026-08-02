@@ -47,13 +47,26 @@ python3 -m http.server 8000   # then visit http://localhost:8000
 No build, no dependencies, no network — all CSS/JS is inline and the visuals are
 pure `<canvas>`.
 
+## A world bigger than the screen
+
+The simulation runs on a world roughly **2× the viewport in each dimension**, so
+there's more universe off-screen than you can see at once. A camera lets you roam it:
+
+- **Scroll / pinch** to zoom toward the cursor; **drag** to pan.
+- Zoom cluster (bottom-left): `−` / `+`, **⤢ Fit** (`F`) to frame the whole world, and a **✋ Pan / ✎ Paint** toggle.
+- Keys: `F` fit, `+` / `−` zoom, arrow keys pan.
+- Rendering uses an **offscreen "world" canvas** drawn once per frame at native
+  resolution, then blitted to the screen through a single camera transform — so the
+  five simulations never need to know the camera exists.
+
 ## Controls
 
-- **Acts** — switch live with the tabs, or press `1` / `2` / `3`.
+- **Acts** — switch live with the tabs, or press `1`–`5`.
 - **Transport** — Play/Pause (`space`), Step, Reset, Speed.
-- **Act I** — editable turmite `Rule` string; **⏭ to highway** fast-forwards to the brink.
-- **Act II** — seed presets, or **drag on the field to paint life**.
+- **Act I** — editable turmite `Rule` string; **⏭ to highway** fast-forwards to the brink; up to 8 interacting ants.
+- **Act II** — seed presets, or switch to **✎ Paint** and drag to paint life.
 - **Act III** — ant count, Life tempo, and `plant` vs `toggle` coupling.
+- **Acts IV–V** — presets, or **✎ Paint** to inject reagent / breathe in life.
 
 ## Architecture
 
