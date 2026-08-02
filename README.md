@@ -1,6 +1,6 @@
 # Emergence
 
-**A living cellular-automata universe — one engine, six acts, built to inspire awe.**
+**A living cellular-automata universe — one engine, seven acts, built to inspire awe.**
 
 Two rules you could write on a napkin produce unfathomable complexity. This is an
 interactive, single-file web toy that makes that *visible* — cinematic, glowing,
@@ -19,7 +19,8 @@ and playable in the browser with no build step and no dependencies.
 | **III — The Grazers** | Hybrid (the novel one) | Ants roaming a *living* Conway field. Each ant reads the **same alive/dead bit** Conway reads and turns on it — the two automata provably reading the same state. |
 | **IV — Chemical Garden** | Gray–Scott reaction–diffusion | Two virtual chemicals feed, react, and diffuse. A field of near-uniform noise **self-organizes into coral, cell mitosis, and fingerprints** — Turing's morphogenesis, live. Drag to inject reagent. |
 | **V — The Creatures** | Lenia (continuous CA) | Conway's Life made **continuous** — real-valued cells, a smooth ring kernel, a bell-curve growth function. An ecosystem of glowing organisms **self-assembles out of random static** and swims, morphs, and divides. Runs on its own coarse grid (kernel convolution is costly), rendered scaled up. Drag to breathe life into the void. |
-| **VI — The Slime Mold** | Physarum agent model | The brainless yellow slime mold *Physarum polycephalum* — which famously reproduced the Tokyo rail network and solves mazes. Thousands of particle-agents each sniff a chemical trail at three points ahead, steer toward the strongest, move, and deposit; the trail diffuses and evaporates. **Reinforced routes survive, dead ends fade** — the emergent network *is* the solution. Drop food (✎) and watch it connect the cities. |
+| **VI — The Slime Mold** | Physarum agent model | The brainless yellow slime mold *Physarum polycephalum* — which famously reproduced the Tokyo rail network and solves mazes. Thousands of particle-agents each sniff a chemical trail at three points ahead, steer toward the strongest, move, and deposit; the trail diffuses and evaporates. **Reinforced routes survive, dead ends fade** — the emergent network *is* the solution. Drop food (✎) and watch it connect the cities, or set it loose in a maze. |
+| **VII — The Sandpile** | Abelian sandpile (BTW) | Drop sand grains; any cell with 4 topples one to each neighbour, which can cascade. Dropping at one point grows the astonishing **self-similar sandpile-identity fractal**; raining grains randomly drives the pile to a critical state where **avalanche sizes follow a power law** — the same signature (self-organized criticality) as earthquakes, extinctions, and market crashes. One integer rule. |
 
 ## Why the thesis holds in the code
 

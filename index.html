@@ -59,8 +59,8 @@
   .camctl button:focus-visible { outline: 2px solid var(--glow); outline-offset: 2px; }
 
   .hud { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); width: min(1160px, calc(100vw - 32px)); background: var(--panel); backdrop-filter: blur(18px) saturate(1.3); -webkit-backdrop-filter: blur(18px) saturate(1.3); border: 1px solid var(--hair); border-radius: 16px; box-shadow: 0 24px 60px -20px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04); z-index: 5; overflow: hidden; }
-  .acts { display: grid; grid-template-columns: repeat(6, 1fr); border-bottom: 1px solid var(--hair); }
-  .act { appearance: none; background: transparent; border: 0; border-right: 1px solid var(--hair); color: var(--muted); padding: 10px 11px; text-align: left; cursor: pointer; transition: background 0.18s, color 0.18s; font-family: var(--font-display); }
+  .acts { display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid var(--hair); }
+  .act { appearance: none; background: transparent; border: 0; border-right: 1px solid var(--hair); color: var(--muted); padding: 10px 9px; text-align: left; cursor: pointer; transition: background 0.18s, color 0.18s; font-family: var(--font-display); }
   .act:last-child { border-right: 0; }
   .act:hover { background: rgba(255,255,255,0.03); color: var(--ink); }
   .act[aria-selected="true"] { background: rgba(34, 211, 238, 0.06); color: var(--ink); }
@@ -155,6 +155,7 @@
       <button class="act" role="tab" data-mode="rd" aria-selected="false"><span class="num">ACT IV</span><span class="nm">Chemical Garden</span><span class="dsc">Noise that grows coral</span></button>
       <button class="act" role="tab" data-mode="lenia" aria-selected="false"><span class="num">ACT V</span><span class="nm">The Creatures</span><span class="dsc">Lenia — life that swims</span></button>
       <button class="act" role="tab" data-mode="phys" aria-selected="false"><span class="num">ACT VI</span><span class="nm">The Slime Mold</span><span class="dsc">Physarum — a brainless solver</span></button>
+      <button class="act" role="tab" data-mode="sand" aria-selected="false"><span class="num">ACT VII</span><span class="nm">The Sandpile</span><span class="dsc">Avalanches like earthquakes</span></button>
     </div>
 
     <div class="controls">
@@ -213,8 +214,17 @@
         <div class="field" id="physSeeds">
           <button class="seed" data-phys="network" aria-pressed="true">Connect the cities</button>
           <button class="seed" data-phys="veins">Free veins</button>
+          <button class="seed" data-phys="maze">Solve a maze</button>
         </div>
         <span class="hint">&#9998; tool drops food to connect</span>
+      </div>
+
+      <div class="mode-controls" data-for="sand">
+        <div class="field" id="sandSeeds">
+          <button class="seed" data-sand="pile" aria-pressed="true">Center pile</button>
+          <button class="seed" data-sand="rain">Random rain</button>
+        </div>
+        <span class="hint">avalanches scale like earthquakes &amp; market crashes &middot; &#9998; drop grains</span>
       </div>
 
       <div class="spacer"></div>
@@ -251,6 +261,7 @@
   var RD_LUT = makeLUT([[0,"#0a0b14"],[0.15,"#0e2f46"],[0.32,"#155e6b"],[0.5,"#1c8fa8"],[0.62,"#3ec7d6"],[0.74,"#7c6bd6"],[0.86,"#c264e6"],[0.94,"#ff5591"],[1,"#ffe0ef"]]);
   var LENIA_LUT = makeLUT([[0,"#0a0b14"],[0.2,"#05432f"],[0.44,"#0aa05c"],[0.66,"#22d37e"],[0.85,"#57f0a0"],[1,"#8fffc0"]]);
   var PHYS_LUT = makeLUT([[0,"#0a0b14"],[0.12,"#2a1e00"],[0.32,"#6e5300"],[0.55,"#c99700"],[0.75,"#ffd23f"],[0.9,"#ffe98a"],[1,"#fffdf0"]]);
+  var SAND_COLORS = ["#0a0b14", "#3730a3", "#db2777", "#f59e0b"];   // heights 0,1,2,3
 
   var WORLD_MULT = 5.0;                 // world is up to this many screens across
   var cell = 6;                         // native world px per cell (offscreen buffer)
@@ -274,7 +285,10 @@
   var leniaSeedKind = "primordial";
 
   // Physarum (slime mold): particle agents on a shared chemoattractant trail (reuses u/u2)
-  var agX, agY, agA, agN = 0, food = [], physKind = "network";
+  var agX, agY, agA, agN = 0, food = [], physKind = "network", physWalls = false;
+
+  // Abelian sandpile (self-organized criticality): heights in `age`, avalanches via a stack
+  var sandKind = "pile", lastAval = 0, sandStack;
 
   var DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
   function idx(x, y) { return y * cols + x; }
@@ -347,7 +361,7 @@
 
   function reset() {
     state.fill(0); next.fill(0); age.fill(0); heat.fill(0); steps=0; pop=0; lifeFrameCounter=0; revealFired=false; ants=[];
-    if (mode==="ant") seedAnts(); else if (mode==="life") seedLife(lifeSeed); else if (mode==="grazers") seedGrazers(); else if (mode==="rd") seedRD(); else if (mode==="lenia") seedLenia(leniaSeedKind); else if (mode==="phys") seedPhys(physKind);
+    if (mode==="ant") seedAnts(); else if (mode==="life") seedLife(lifeSeed); else if (mode==="grazers") seedGrazers(); else if (mode==="rd") seedRD(); else if (mode==="lenia") seedLenia(leniaSeedKind); else if (mode==="phys") seedPhys(physKind); else if (mode==="sand") seedSand();
     hideBigReveal(); updateReveal();
   }
 
@@ -389,7 +403,36 @@
     }
   }
 
+  function seedSand(){ age.fill(0); lastAval = 0; if (!sandStack || sandStack.length < cols*rows) sandStack = new Int32Array(cols*rows); }
+
   // ---- steps ----
+  // Sandpile: drop a grain; any cell reaching 4 topples one grain to each neighbor,
+  // which can cascade. Avalanche sizes follow a power law — the signature of SOC.
+  function relaxSand(di){                       // topple from di until stable; open boundary loses grains
+    if (age[di] < 4) return 0;
+    var c=cols, r=rows, sp=0, topples=0; sandStack[sp++]=di;
+    while (sp>0){
+      var i=sandStack[--sp]; if (age[i] < 4) continue;
+      var x=i%c, y=(i/c)|0;
+      while (age[i] >= 4){
+        age[i]-=4; topples++;
+        if (x>0){ var l=i-1; if (++age[l]===4) sandStack[sp++]=l; }
+        if (x<c-1){ var rr=i+1; if (++age[rr]===4) sandStack[sp++]=rr; }
+        if (y>0){ var up=i-c; if (++age[up]===4) sandStack[sp++]=up; }
+        if (y<r-1){ var dn=i+c; if (++age[dn]===4) sandStack[sp++]=dn; }
+      }
+    }
+    return topples;
+  }
+  function stepSand(times){
+    var c=cols, r=rows;
+    for (var s=0;s<times;s++){
+      var di = sandKind==="pile" ? (r>>1)*c+(c>>1) : ((Math.random()*r)|0)*c+((Math.random()*c)|0);
+      age[di]++; steps++;
+      var t = relaxSand(di); if (t>0) lastAval = t;
+    }
+  }
+
   // Physarum: each agent sniffs the trail (u) at three points ahead, steers toward the
   // strongest, moves, and deposits. The trail diffuses and evaporates. Networks emerge.
   function stepPhys(times){
@@ -427,7 +470,7 @@
   // ---- render (into the offscreen world, then composite through the camera) ----
   function render() {
     wctx.setTransform(1,0,0,1,0,0); wctx.fillStyle=VOID; wctx.fillRect(0,0,worldPxW,worldPxH); pop=0;
-    if (mode==="ant") renderTurmite(); else if (mode==="life") renderLife(); else if (mode==="grazers") renderGrazers(); else if (mode==="rd") renderRD(); else if (mode==="lenia") renderLenia(); else renderPhys();
+    if (mode==="ant") renderTurmite(); else if (mode==="life") renderLife(); else if (mode==="grazers") renderGrazers(); else if (mode==="rd") renderRD(); else if (mode==="lenia") renderLenia(); else if (mode==="phys") renderPhys(); else renderSand();
     ctx.setTransform(dpr,0,0,dpr,0,0); ctx.fillStyle=VOID; ctx.fillRect(0,0,canvas.clientWidth,canvas.clientHeight);
     ctx.imageSmoothingEnabled=true;
     var s=view.scale; ctx.drawImage(wc, 0,0,worldPxW,worldPxH, -view.x*s, -view.y*s, worldPxW*s, worldPxH*s);
@@ -463,6 +506,10 @@
     for (var f=0; f<food.length; f++){ var px=food[f].x*cell+cell/2, py=food[f].y*cell+cell/2, rr=Math.max(cell*3,10); var g=wctx.createRadialGradient(px,py,0,px,py,rr); g.addColorStop(0,"rgba(190,247,255,0.95)"); g.addColorStop(0.4,"rgba(90,220,255,0.5)"); g.addColorStop(1,"rgba(90,220,255,0)"); wctx.fillStyle=g; wctx.beginPath(); wctx.arc(px,py,rr,0,Math.PI*2); wctx.fill(); }
     wctx.globalCompositeOperation="source-over";
   }
+  function renderSand(){
+    for (var y=0;y<rows;y++) for (var x=0;x<cols;x++){ var hh=age[idx(x,y)]; if (hh){ wctx.fillStyle = SAND_COLORS[hh>3?3:hh]; wctx.fillRect(x*cell,y*cell,cell,cell); } }
+    pop = lastAval;
+  }
   function drawAnt(ant,color){ if (!ant) return; var px=ant.x*cell+cell/2, py=ant.y*cell+cell/2, rr=Math.max(cell*2.4,7); var g=wctx.createRadialGradient(px,py,0,px,py,rr); g.addColorStop(0,"rgba(255,255,255,0.95)"); g.addColorStop(0.35,hexA(color,0.6)); g.addColorStop(1,hexA(color,0)); wctx.globalCompositeOperation="lighter"; wctx.fillStyle=g; wctx.beginPath(); wctx.arc(px,py,rr,0,Math.PI*2); wctx.fill(); wctx.globalCompositeOperation="source-over"; wctx.fillStyle="#fff"; wctx.fillRect(ant.x*cell,ant.y*cell,cell,cell); }
   function hexA(hex,a){ return "rgba("+parseInt(hex.substr(1,2),16)+","+parseInt(hex.substr(3,2),16)+","+parseInt(hex.substr(5,2),16)+","+a+")"; }
 
@@ -470,7 +517,7 @@
   function speedSteps(){ var vv=parseInt(document.getElementById("speed").value,10); return Math.max(1, Math.round(Math.pow(vv/6,2))+1); }
   var raf;
   function tick(){ try { if (running) advance(); render(); updateReadouts(); } catch(e){} raf=requestAnimationFrame(tick); }
-  function advance(){ if (mode==="ant") stepTurmite(speedSteps()); else if (mode==="life"){ var f=Math.max(1,Math.round(speedSteps()/8)); for (var k=0;k<f;k++) stepLife(); } else if (mode==="grazers") stepGrazers(speedSteps()); else if (mode==="rd"){ var it=Math.min(24,Math.max(4,speedSteps())); stepRD(it); } else if (mode==="lenia"){ var ls=Math.max(1,Math.min(4,Math.round(speedSteps()/6))); stepLenia(ls); } else { var ps=Math.max(1,Math.min(4,Math.round(speedSteps()/8))); stepPhys(ps); } }
+  function advance(){ if (mode==="ant") stepTurmite(speedSteps()); else if (mode==="life"){ var f=Math.max(1,Math.round(speedSteps()/8)); for (var k=0;k<f;k++) stepLife(); } else if (mode==="grazers") stepGrazers(speedSteps()); else if (mode==="rd"){ var it=Math.min(24,Math.max(4,speedSteps())); stepRD(it); } else if (mode==="lenia"){ var ls=Math.max(1,Math.min(4,Math.round(speedSteps()/6))); stepLenia(ls); } else if (mode==="phys"){ var ps=Math.max(1,Math.min(4,Math.round(speedSteps()/8))); stepPhys(ps); } else { stepSand(speedSteps()*4); } }
 
   // ---- readouts + reveal ----
   var stepVal=document.getElementById("stepVal"), popVal=document.getElementById("popVal"), reveal=document.getElementById("reveal");
@@ -499,8 +546,9 @@
     else if (m==="grazers"){ stepLab.textContent="Ant steps"; popLab.textContent="Cells alive"; }
     else if (m==="rd"){ stepLab.textContent="Iterations"; popLab.textContent="Reagent"; }
     else if (m==="lenia"){ stepLab.textContent="Time"; popLab.textContent="Biomass"; }
-    else { stepLab.textContent="Time"; popLab.textContent="Network"; }
-    genHint.textContent = m==="grazers"?"ants read life · life reshapes ants" : m==="rd"?"two chemicals · feed & kill" : m==="lenia"?"continuous life · a smooth Game of Life" : m==="phys"?"no brain · a chemical trail that thinks" : "";
+    else if (m==="phys"){ stepLab.textContent="Time"; popLab.textContent="Network"; }
+    else { stepLab.textContent="Grains"; popLab.textContent="Last avalanche"; }
+    genHint.textContent = m==="grazers"?"ants read life · life reshapes ants" : m==="rd"?"two chemicals · feed & kill" : m==="lenia"?"continuous life · a smooth Game of Life" : m==="phys"?"no brain · a chemical trail that thinks" : m==="sand"?"one rule · avalanches at every scale" : "";
     reset();
   }
   document.querySelectorAll(".act").forEach(function(b){ b.addEventListener("click", function(){ setMode(b.dataset.mode); }); });
@@ -522,6 +570,7 @@
   document.querySelectorAll("#rdSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ rdKind=s.dataset.rd; document.querySelectorAll("#rdSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); reset(); }); });
   document.querySelectorAll("#leniaSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ leniaSeedKind=s.dataset.lenia; document.querySelectorAll("#leniaSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); reset(); }); });
   document.querySelectorAll("#physSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ physKind=s.dataset.phys; document.querySelectorAll("#physSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); reset(); }); });
+  document.querySelectorAll("#sandSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ sandKind=s.dataset.sand; document.querySelectorAll("#sandSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); reset(); }); });
 
   document.getElementById("zoomIn").addEventListener("click", function(){ zoomAt(canvas.clientWidth/2, canvas.clientHeight/2, 1.3); });
   document.getElementById("zoomOut").addEventListener("click", function(){ zoomAt(canvas.clientWidth/2, canvas.clientHeight/2, 1/1.3); });
@@ -535,6 +584,7 @@
     var wpx = view.x + (clientX-rect.left)/view.scale, wpy = view.y + (clientY-rect.top)/view.scale;
     if (mode==="lenia"){ var lx=Math.floor(wpx/(worldPxW/LW)), ly=Math.floor(wpy/(worldPxH/LH)), br=Math.max(3,(L_R*0.7)|0); for (var dy=-br;dy<=br;dy++) for (var dx=-br;dx<=br;dx++){ if (dx*dx+dy*dy>br*br) continue; var nx=(lx+dx+LW)%LW, ny=(ly+dy+LH)%LH; if (nx<0||ny<0) continue; lenia[ny*LW+nx]=Math.min(1, lenia[ny*LW+nx]+0.6); } return; }
     if (mode==="phys"){ var pcx=(Math.floor(wpx/cell)%cols+cols)%cols, pcy=(Math.floor(wpy/cell)%rows+rows)%rows; if (food.length<200) food.push({ x:pcx, y:pcy }); return; }
+    if (mode==="sand"){ var scx=Math.floor(wpx/cell), scy=Math.floor(wpy/cell); if (scx>=0&&scy>=0&&scx<cols&&scy<rows){ var si=idx(scx,scy); age[si]+=20; lastAval=relaxSand(si); } return; }
     var cx=Math.floor(wpx/cell), cy=Math.floor(wpy/cell), rad = mode==="rd"?3:1;
     for (var dy2=-rad;dy2<=rad;dy2++) for (var dx2=-rad;dx2<=rad;dx2++){ var mx=(cx+dx2+cols)%cols, my=(cy+dy2+rows)%rows, j=idx(mx,my); if (mode==="rd"){ u[j]=0.5; v[j]=0.25; } else { state[j]=1; age[j]=1; } }
   }
@@ -549,7 +599,7 @@
   window.addEventListener("keydown", function(e){
     if (e.target.tagName==="INPUT") return;
     if (e.code==="Space"){ e.preventDefault(); playBtn.click(); }
-    else if (e.key==="1") setMode("ant"); else if (e.key==="2") setMode("life"); else if (e.key==="3") setMode("grazers"); else if (e.key==="4") setMode("rd"); else if (e.key==="5") setMode("lenia"); else if (e.key==="6") setMode("phys");
+    else if (e.key==="1") setMode("ant"); else if (e.key==="2") setMode("life"); else if (e.key==="3") setMode("grazers"); else if (e.key==="4") setMode("rd"); else if (e.key==="5") setMode("lenia"); else if (e.key==="6") setMode("phys"); else if (e.key==="7") setMode("sand");
     else if (e.key==="f"||e.key==="F") fitView();
     else if (e.key==="+"||e.key==="=") zoomAt(canvas.clientWidth/2, canvas.clientHeight/2, 1.3);
     else if (e.key==="-"||e.key==="_") zoomAt(canvas.clientWidth/2, canvas.clientHeight/2, 1/1.3);
