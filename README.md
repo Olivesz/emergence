@@ -1,0 +1,79 @@
+# Emergence
+
+**A living cellular-automata universe — one engine, several acts, built to inspire awe.**
+
+Two rules you could write on a napkin produce unfathomable complexity. This is an
+interactive, single-file web toy that makes that *visible* — cinematic, glowing,
+and playable in the browser with no build step and no dependencies.
+
+> The whole point: maximize the gap between the **triviality of the rule** and the
+> **apparent sophistication of the result** — and make that gap legible. Show the
+> rule, then show the miracle.
+
+## The acts
+
+| Act | System | The "wow" |
+|-----|--------|-----------|
+| **I — The Highway** | Langton's Ant (generalized turmites) | ~10,000 steps of chaos, then a self-built periodic *highway* appears from nowhere. The rule field turns this into an infinite turmite explorer (`RL`, `RLR`, `LLRR`, …). |
+| **II — The Living Field** | Conway's Game of Life | Cells that breathe. Age-colored (newborn cyan → ancient magenta). R-pentomino, Gosper glider gun, pulsar, or paint your own. |
+| **III — The Grazers** | Hybrid (the novel one) | Ants roaming a *living* Conway field. Each ant reads the **same alive/dead bit** Conway reads and turns on it — the two automata provably reading the same state. |
+
+## Why the thesis holds in the code
+
+Langton's Ant and Conway's Life look like different species — a moving read/write
+head vs. a global field update. But they are both cellular automata, and in **Act
+III** the connection is literal: the ant's turn rule is
+
+```js
+ant.dir += alive ? 1 : 3;   // turn right on a live cell, left on a dead one
+```
+
+…which *is* Langton's "turn right on one color, left on the other" — except the
+"color" is Conway's life-state. The moving-head automaton and the field automaton
+are reading the same bit.
+
+## Run it
+
+It's a single self-contained HTML file. Any of:
+
+```bash
+open index.html
+# or serve it
+python3 -m http.server 8000   # then visit http://localhost:8000
+```
+
+No build, no dependencies, no network — all CSS/JS is inline and the visuals are
+pure `<canvas>`.
+
+## Controls
+
+- **Acts** — switch live with the tabs, or press `1` / `2` / `3`.
+- **Transport** — Play/Pause (`space`), Step, Reset, Speed.
+- **Act I** — editable turmite `Rule` string; **⏭ to highway** fast-forwards to the brink.
+- **Act II** — seed presets, or **drag on the field to paint life**.
+- **Act III** — ant count, Life tempo, and `plant` vs `toggle` coupling.
+
+## Architecture
+
+One engine, shared grid buffers (`state`, `age`, `heat` typed arrays); only the
+`step*()` and `seed*()` functions differ per act. Rendering is `<canvas>` with a
+cheap **bloom** post-process (downscale → blur → additive composite) that turns
+colored squares into glowing energy.
+
+The heart of the hybrid is a single function, `coupling()`, deliberately isolated
+so its rule can be redesigned — that one function defines the entire character of
+Act III.
+
+## Roadmap
+
+Emergence is *rule-dependent*: change the rule, change the miracle. Planned acts push
+toward genuine apparent **aliveness**:
+
+- **Lenia** — continuous-state CA whose "creatures" (orbium) swim, turn, and heal like plankton.
+- **Reaction–diffusion** (Gray–Scott) — organic Turing patterns: coral, fingerprints, cell mitosis.
+- **True turmites** — an ant with internal states → spiral and fractal builders far beyond `RL`.
+- **Multi-ant interaction** — ants that collide, interfere, and dismantle each other's highways.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
