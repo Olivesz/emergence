@@ -58,9 +58,9 @@
   .camctl #toolBtn[data-tool="paint"] { color: var(--glow); border-color: var(--glow); background: rgba(34,211,238,0.1); }
   .camctl button:focus-visible { outline: 2px solid var(--glow); outline-offset: 2px; }
 
-  .hud { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); width: min(1040px, calc(100vw - 32px)); background: var(--panel); backdrop-filter: blur(18px) saturate(1.3); -webkit-backdrop-filter: blur(18px) saturate(1.3); border: 1px solid var(--hair); border-radius: 16px; box-shadow: 0 24px 60px -20px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04); z-index: 5; overflow: hidden; }
-  .acts { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid var(--hair); }
-  .act { appearance: none; background: transparent; border: 0; border-right: 1px solid var(--hair); color: var(--muted); padding: 11px 13px; text-align: left; cursor: pointer; transition: background 0.18s, color 0.18s; font-family: var(--font-display); }
+  .hud { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); width: min(1160px, calc(100vw - 32px)); background: var(--panel); backdrop-filter: blur(18px) saturate(1.3); -webkit-backdrop-filter: blur(18px) saturate(1.3); border: 1px solid var(--hair); border-radius: 16px; box-shadow: 0 24px 60px -20px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04); z-index: 5; overflow: hidden; }
+  .acts { display: grid; grid-template-columns: repeat(6, 1fr); border-bottom: 1px solid var(--hair); }
+  .act { appearance: none; background: transparent; border: 0; border-right: 1px solid var(--hair); color: var(--muted); padding: 10px 11px; text-align: left; cursor: pointer; transition: background 0.18s, color 0.18s; font-family: var(--font-display); }
   .act:last-child { border-right: 0; }
   .act:hover { background: rgba(255,255,255,0.03); color: var(--ink); }
   .act[aria-selected="true"] { background: rgba(34, 211, 238, 0.06); color: var(--ink); }
@@ -154,6 +154,7 @@
       <button class="act" role="tab" data-mode="grazers" aria-selected="false"><span class="num">ACT III</span><span class="nm">The Grazers</span><span class="dsc">Ants on a living field</span></button>
       <button class="act" role="tab" data-mode="rd" aria-selected="false"><span class="num">ACT IV</span><span class="nm">Chemical Garden</span><span class="dsc">Noise that grows coral</span></button>
       <button class="act" role="tab" data-mode="lenia" aria-selected="false"><span class="num">ACT V</span><span class="nm">The Creatures</span><span class="dsc">Lenia — life that swims</span></button>
+      <button class="act" role="tab" data-mode="phys" aria-selected="false"><span class="num">ACT VI</span><span class="nm">The Slime Mold</span><span class="dsc">Physarum — a brainless solver</span></button>
     </div>
 
     <div class="controls">
@@ -208,6 +209,14 @@
         <span class="hint">&#9998; tool breathes life into the void</span>
       </div>
 
+      <div class="mode-controls" data-for="phys">
+        <div class="field" id="physSeeds">
+          <button class="seed" data-phys="network" aria-pressed="true">Connect the cities</button>
+          <button class="seed" data-phys="veins">Free veins</button>
+        </div>
+        <span class="hint">&#9998; tool drops food to connect</span>
+      </div>
+
       <div class="spacer"></div>
       <span class="hint" id="genHint"></span>
     </div>
@@ -241,13 +250,14 @@
   var ANT_COLORS = ["#ff3d81", "#3ee6c4", "#ffd166", "#8b7bff", "#ff9f43", "#4dd0ff", "#c86bff", "#7cfc9e"];
   var RD_LUT = makeLUT([[0,"#0a0b14"],[0.15,"#0e2f46"],[0.32,"#155e6b"],[0.5,"#1c8fa8"],[0.62,"#3ec7d6"],[0.74,"#7c6bd6"],[0.86,"#c264e6"],[0.94,"#ff5591"],[1,"#ffe0ef"]]);
   var LENIA_LUT = makeLUT([[0,"#0a0b14"],[0.2,"#05432f"],[0.44,"#0aa05c"],[0.66,"#22d37e"],[0.85,"#57f0a0"],[1,"#8fffc0"]]);
+  var PHYS_LUT = makeLUT([[0,"#0a0b14"],[0.12,"#2a1e00"],[0.32,"#6e5300"],[0.55,"#c99700"],[0.75,"#ffd23f"],[0.9,"#ffe98a"],[1,"#fffdf0"]]);
 
   var WORLD_MULT = 5.0;                 // world is up to this many screens across
   var cell = 6;                         // native world px per cell (offscreen buffer)
   var cols = 0, rows = 0, dpr = 1;
   var worldPxW = 0, worldPxH = 0;
   var view = { scale: 1, x: 0, y: 0 };  // scale: screen px per world px; x,y: world px at screen top-left
-  var scaleDefault = 1, scaleMin = 0.1, scaleMax = 8;
+  var scaleDefault = 1, scaleMin = 0.1, scaleMax = 8, visSpan = 150;
   var tool = "pan";
 
   var state, next, age, heat;
@@ -262,6 +272,9 @@
   var LW = 0, LH = 0, lenia, leniaNext, kdx, kdy, kw, kn = 0;
   var L_R = 12, L_MU = 0.15, L_GDEN = 2*0.017*0.017, L_KDEN = 2*0.15*0.15, L_DT = 0.1;
   var leniaSeedKind = "primordial";
+
+  // Physarum (slime mold): particle agents on a shared chemoattractant trail (reuses u/u2)
+  var agX, agY, agA, agN = 0, food = [], physKind = "network";
 
   var DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
   function idx(x, y) { return y * cols + x; }
@@ -318,7 +331,7 @@
     worldPxW = cols*cell; worldPxH = rows*cell;
     wc.width = worldPxW; wc.height = worldPxH;
 
-    scaleDefault = w / (visCols*cell);
+    scaleDefault = w / (visCols*cell); visSpan = visCols;
     var fit = Math.min(w/worldPxW, h/worldPxH);
     scaleMin = Math.min(scaleDefault, fit*0.55);       // allow zooming out well past the whole world
     scaleMax = scaleDefault * 8;
@@ -334,7 +347,7 @@
 
   function reset() {
     state.fill(0); next.fill(0); age.fill(0); heat.fill(0); steps=0; pop=0; lifeFrameCounter=0; revealFired=false; ants=[];
-    if (mode==="ant") seedAnts(); else if (mode==="life") seedLife(lifeSeed); else if (mode==="grazers") seedGrazers(); else if (mode==="rd") seedRD(); else if (mode==="lenia") seedLenia(leniaSeedKind);
+    if (mode==="ant") seedAnts(); else if (mode==="life") seedLife(lifeSeed); else if (mode==="grazers") seedGrazers(); else if (mode==="rd") seedRD(); else if (mode==="lenia") seedLenia(leniaSeedKind); else if (mode==="phys") seedPhys(physKind);
     hideBigReveal(); updateReveal();
   }
 
@@ -360,7 +373,50 @@
     else { for (var b=0;b<14;b++){ var bx=(Math.random()*LW)|0, by=(Math.random()*LH)|0, br=(L_R*(0.8+Math.random()))|0; for (var dy2=-br;dy2<=br;dy2++) for (var dx2=-br;dx2<=br;dx2++){ if (dx2*dx2+dy2*dy2>br*br) continue; var qx=(bx+dx2+LW)%LW, qy=(by+dy2+LH)%LH; lenia[qy*LW+qx]=Math.max(lenia[qy*LW+qx], Math.random()*0.9); } } }
   }
 
+  function seedPhys(kind){
+    u.fill(0); u2.fill(0); food = [];
+    agN = Math.min(24000, Math.round(cols*rows*0.10));
+    agX = new Float32Array(agN); agY = new Float32Array(agN); agA = new Float32Array(agN);
+    var cx = cols/2, cy = rows/2;
+    if (kind==="network"){
+      // ring sized to the visible frame so all cities are on screen at default zoom
+      var M = 11, R = Math.min(visSpan, visSpan*rows/cols)*0.36;
+      for (var m=0;m<M;m++){ var an=m/M*Math.PI*2; food.push({ x:(((cx+Math.cos(an)*R)|0)+cols)%cols, y:(((cy+Math.sin(an)*R)|0)+rows)%rows }); }
+      food.push({ x:cx|0, y:cy|0 });
+      for (var i=0;i<agN;i++){ agX[i]=cx+(Math.random()-0.5)*R*1.8; agY[i]=cy+(Math.random()-0.5)*R*1.8; agA[i]=Math.random()*Math.PI*2; }
+    } else {
+      for (var i2=0;i2<agN;i2++){ agX[i2]=Math.random()*cols; agY[i2]=Math.random()*rows; agA[i2]=Math.random()*Math.PI*2; }
+    }
+  }
+
   // ---- steps ----
+  // Physarum: each agent sniffs the trail (u) at three points ahead, steers toward the
+  // strongest, moves, and deposits. The trail diffuses and evaporates. Networks emerge.
+  function stepPhys(times){
+    var SA=0.393, RA=0.393, SD=Math.max(6, Math.round(cols/45)), DEP=0.9, DECAY=0.90, FOOD=6.0, MAXT=10.0, c=cols, r=rows;
+    for (var s=0;s<times;s++){
+      for (var fi=0; fi<food.length; fi++){ var fx=food[fi].x, fy=food[fi].y; for (var dy=-1;dy<=1;dy++) for (var dx=-1;dx<=1;dx++){ var qx=(fx+dx+c)%c, qy=(fy+dy+r)%r; u[qy*c+qx]=FOOD; } }
+      for (var i=0;i<agN;i++){
+        var x=agX[i], y=agY[i], a=agA[i];
+        var F=sampleTrail(x,y,a,0,SD), L=sampleTrail(x,y,a,-SA,SD), Rr=sampleTrail(x,y,a,SA,SD);
+        if (F>L && F>Rr){} else if (F<L && F<Rr){ a += (Math.random()<0.5?-RA:RA); } else if (L>Rr){ a -= RA; } else if (Rr>L){ a += RA; }
+        x += Math.cos(a); y += Math.sin(a);
+        if (x<0) x+=c; else if (x>=c) x-=c; if (y<0) y+=r; else if (y>=r) y-=r;
+        agX[i]=x; agY[i]=y; agA[i]=a;
+        var j=((y|0)*c)+(x|0), nv=u[j]+DEP; u[j]=nv>MAXT?MAXT:nv;
+      }
+      diffusePhys(DECAY); steps++;
+    }
+  }
+  function sampleTrail(x,y,a,off,SD){ var sx=x+Math.cos(a+off)*SD, sy=y+Math.sin(a+off)*SD; var ix=(Math.floor(sx)%cols+cols)%cols, iy=(Math.floor(sy)%rows+rows)%rows; return u[iy*cols+ix]; }
+  function diffusePhys(decay){
+    var c=cols, r=rows;
+    for (var y=0;y<r;y++){ var yUp=(y-1+r)%r, yDn=(y+1)%r; for (var x=0;x<c;x++){ var xL=(x-1+c)%c, xR=(x+1)%c;
+      var sum=u[yUp*c+xL]+u[yUp*c+x]+u[yUp*c+xR]+u[y*c+xL]+u[y*c+x]+u[y*c+xR]+u[yDn*c+xL]+u[yDn*c+x]+u[yDn*c+xR];
+      u2[y*c+x]=(sum/9)*decay; } }
+    var t=u; u=u2; u2=t;
+  }
+
   function stepTurmite(times){ for (var s=0;s<times;s++){ for (var a=0;a<ants.length;a++){ var ant=ants[a], i=idx(ant.x,ant.y), c=state[i]; ant.dir=(ant.dir+ruleTurns[c%ruleTurns.length])&3; state[i]=(c+1)%nColors; heat[i]=1.0; ant.x=(ant.x+DX[ant.dir]+cols)%cols; ant.y=(ant.y+DY[ant.dir]+rows)%rows; } steps++; } }
   function stepLife(){ var c=cols,r=rows; for (var y=0;y<r;y++){ var yUp=(y-1+r)%r,yDn=(y+1)%r; for (var x=0;x<c;x++){ var xL=(x-1+c)%c,xR=(x+1)%c; var n=state[yUp*c+xL]+state[yUp*c+x]+state[yUp*c+xR]+state[y*c+xL]+state[y*c+xR]+state[yDn*c+xL]+state[yDn*c+x]+state[yDn*c+xR]; var alive=state[y*c+x], will=(alive?(n===2||n===3):(n===3))?1:0, j=y*c+x; next[j]=will; if (will){ if (age[j]<65000) age[j]++; } else { if (alive) heat[j]=0.9; age[j]=0; } } } var tmp=state; state=next; next=tmp; steps++; }
   function coupling(ant,i,alive){ ant.dir=(ant.dir+(alive?1:3))&3; if (plantMode==="toggle") state[i]=alive?0:1; else state[i]=1; heat[i]=1.0; }
@@ -371,7 +427,7 @@
   // ---- render (into the offscreen world, then composite through the camera) ----
   function render() {
     wctx.setTransform(1,0,0,1,0,0); wctx.fillStyle=VOID; wctx.fillRect(0,0,worldPxW,worldPxH); pop=0;
-    if (mode==="ant") renderTurmite(); else if (mode==="life") renderLife(); else if (mode==="grazers") renderGrazers(); else if (mode==="rd") renderRD(); else renderLenia();
+    if (mode==="ant") renderTurmite(); else if (mode==="life") renderLife(); else if (mode==="grazers") renderGrazers(); else if (mode==="rd") renderRD(); else if (mode==="lenia") renderLenia(); else renderPhys();
     ctx.setTransform(dpr,0,0,dpr,0,0); ctx.fillStyle=VOID; ctx.fillRect(0,0,canvas.clientWidth,canvas.clientHeight);
     ctx.imageSmoothingEnabled=true;
     var s=view.scale; ctx.drawImage(wc, 0,0,worldPxW,worldPxH, -view.x*s, -view.y*s, worldPxW*s, worldPxH*s);
@@ -401,6 +457,12 @@
   }
   function renderRD(){ for (var y=0;y<rows;y++) for (var x=0;x<cols;x++){ var i=idx(x,y), val=v[i]; if (val>0.02){ var li=(val*560)|0; if (li>255) li=255; wctx.fillStyle=RD_LUT[li]; wctx.fillRect(x*cell,y*cell,cell,cell); if (val>0.2) pop++; } } }
   function renderLenia(){ var cw=worldPxW/LW, ch=worldPxH/LH, cwc=Math.ceil(cw)+1, chc=Math.ceil(ch)+1; for (var y=0;y<LH;y++) for (var x=0;x<LW;x++){ var val=lenia[y*LW+x]; if (val>0.02){ var li=(val*255)|0; if (li>255) li=255; wctx.fillStyle=LENIA_LUT[li]; wctx.fillRect(x*cw,y*ch,cwc,chc); if (val>0.25) pop++; } } }
+  function renderPhys(){
+    for (var y=0;y<rows;y++) for (var x=0;x<cols;x++){ var val=u[idx(x,y)]; if (val>0.05){ var li=(val*40)|0; if (li>255) li=255; wctx.fillStyle=PHYS_LUT[li]; wctx.fillRect(x*cell,y*cell,cell,cell); if (val>0.4) pop++; } }
+    wctx.globalCompositeOperation="lighter";
+    for (var f=0; f<food.length; f++){ var px=food[f].x*cell+cell/2, py=food[f].y*cell+cell/2, rr=Math.max(cell*3,10); var g=wctx.createRadialGradient(px,py,0,px,py,rr); g.addColorStop(0,"rgba(190,247,255,0.95)"); g.addColorStop(0.4,"rgba(90,220,255,0.5)"); g.addColorStop(1,"rgba(90,220,255,0)"); wctx.fillStyle=g; wctx.beginPath(); wctx.arc(px,py,rr,0,Math.PI*2); wctx.fill(); }
+    wctx.globalCompositeOperation="source-over";
+  }
   function drawAnt(ant,color){ if (!ant) return; var px=ant.x*cell+cell/2, py=ant.y*cell+cell/2, rr=Math.max(cell*2.4,7); var g=wctx.createRadialGradient(px,py,0,px,py,rr); g.addColorStop(0,"rgba(255,255,255,0.95)"); g.addColorStop(0.35,hexA(color,0.6)); g.addColorStop(1,hexA(color,0)); wctx.globalCompositeOperation="lighter"; wctx.fillStyle=g; wctx.beginPath(); wctx.arc(px,py,rr,0,Math.PI*2); wctx.fill(); wctx.globalCompositeOperation="source-over"; wctx.fillStyle="#fff"; wctx.fillRect(ant.x*cell,ant.y*cell,cell,cell); }
   function hexA(hex,a){ return "rgba("+parseInt(hex.substr(1,2),16)+","+parseInt(hex.substr(3,2),16)+","+parseInt(hex.substr(5,2),16)+","+a+")"; }
 
@@ -408,7 +470,7 @@
   function speedSteps(){ var vv=parseInt(document.getElementById("speed").value,10); return Math.max(1, Math.round(Math.pow(vv/6,2))+1); }
   var raf;
   function tick(){ try { if (running) advance(); render(); updateReadouts(); } catch(e){} raf=requestAnimationFrame(tick); }
-  function advance(){ if (mode==="ant") stepTurmite(speedSteps()); else if (mode==="life"){ var f=Math.max(1,Math.round(speedSteps()/8)); for (var k=0;k<f;k++) stepLife(); } else if (mode==="grazers") stepGrazers(speedSteps()); else if (mode==="rd"){ var it=Math.min(24,Math.max(4,speedSteps())); stepRD(it); } else { var ls=Math.max(1,Math.min(4,Math.round(speedSteps()/6))); stepLenia(ls); } }
+  function advance(){ if (mode==="ant") stepTurmite(speedSteps()); else if (mode==="life"){ var f=Math.max(1,Math.round(speedSteps()/8)); for (var k=0;k<f;k++) stepLife(); } else if (mode==="grazers") stepGrazers(speedSteps()); else if (mode==="rd"){ var it=Math.min(24,Math.max(4,speedSteps())); stepRD(it); } else if (mode==="lenia"){ var ls=Math.max(1,Math.min(4,Math.round(speedSteps()/6))); stepLenia(ls); } else { var ps=Math.max(1,Math.min(4,Math.round(speedSteps()/8))); stepPhys(ps); } }
 
   // ---- readouts + reveal ----
   var stepVal=document.getElementById("stepVal"), popVal=document.getElementById("popVal"), reveal=document.getElementById("reveal");
@@ -436,8 +498,9 @@
     else if (m==="life"){ stepLab.textContent="Generation"; popLab.textContent="Cells alive"; }
     else if (m==="grazers"){ stepLab.textContent="Ant steps"; popLab.textContent="Cells alive"; }
     else if (m==="rd"){ stepLab.textContent="Iterations"; popLab.textContent="Reagent"; }
-    else { stepLab.textContent="Time"; popLab.textContent="Biomass"; }
-    genHint.textContent = m==="grazers"?"ants read life · life reshapes ants" : m==="rd"?"two chemicals · feed & kill" : m==="lenia"?"continuous life · a smooth Game of Life" : "";
+    else if (m==="lenia"){ stepLab.textContent="Time"; popLab.textContent="Biomass"; }
+    else { stepLab.textContent="Time"; popLab.textContent="Network"; }
+    genHint.textContent = m==="grazers"?"ants read life · life reshapes ants" : m==="rd"?"two chemicals · feed & kill" : m==="lenia"?"continuous life · a smooth Game of Life" : m==="phys"?"no brain · a chemical trail that thinks" : "";
     reset();
   }
   document.querySelectorAll(".act").forEach(function(b){ b.addEventListener("click", function(){ setMode(b.dataset.mode); }); });
@@ -458,6 +521,7 @@
   document.querySelectorAll("#plantMode .seed").forEach(function(s){ s.addEventListener("click", function(){ plantMode=s.dataset.plant; document.querySelectorAll("#plantMode .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); }); });
   document.querySelectorAll("#rdSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ rdKind=s.dataset.rd; document.querySelectorAll("#rdSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); reset(); }); });
   document.querySelectorAll("#leniaSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ leniaSeedKind=s.dataset.lenia; document.querySelectorAll("#leniaSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); reset(); }); });
+  document.querySelectorAll("#physSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ physKind=s.dataset.phys; document.querySelectorAll("#physSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); reset(); }); });
 
   document.getElementById("zoomIn").addEventListener("click", function(){ zoomAt(canvas.clientWidth/2, canvas.clientHeight/2, 1.3); });
   document.getElementById("zoomOut").addEventListener("click", function(){ zoomAt(canvas.clientWidth/2, canvas.clientHeight/2, 1/1.3); });
@@ -470,6 +534,7 @@
     var rect=canvas.getBoundingClientRect();
     var wpx = view.x + (clientX-rect.left)/view.scale, wpy = view.y + (clientY-rect.top)/view.scale;
     if (mode==="lenia"){ var lx=Math.floor(wpx/(worldPxW/LW)), ly=Math.floor(wpy/(worldPxH/LH)), br=Math.max(3,(L_R*0.7)|0); for (var dy=-br;dy<=br;dy++) for (var dx=-br;dx<=br;dx++){ if (dx*dx+dy*dy>br*br) continue; var nx=(lx+dx+LW)%LW, ny=(ly+dy+LH)%LH; if (nx<0||ny<0) continue; lenia[ny*LW+nx]=Math.min(1, lenia[ny*LW+nx]+0.6); } return; }
+    if (mode==="phys"){ var pcx=(Math.floor(wpx/cell)%cols+cols)%cols, pcy=(Math.floor(wpy/cell)%rows+rows)%rows; if (food.length<200) food.push({ x:pcx, y:pcy }); return; }
     var cx=Math.floor(wpx/cell), cy=Math.floor(wpy/cell), rad = mode==="rd"?3:1;
     for (var dy2=-rad;dy2<=rad;dy2++) for (var dx2=-rad;dx2<=rad;dx2++){ var mx=(cx+dx2+cols)%cols, my=(cy+dy2+rows)%rows, j=idx(mx,my); if (mode==="rd"){ u[j]=0.5; v[j]=0.25; } else { state[j]=1; age[j]=1; } }
   }
@@ -484,7 +549,7 @@
   window.addEventListener("keydown", function(e){
     if (e.target.tagName==="INPUT") return;
     if (e.code==="Space"){ e.preventDefault(); playBtn.click(); }
-    else if (e.key==="1") setMode("ant"); else if (e.key==="2") setMode("life"); else if (e.key==="3") setMode("grazers"); else if (e.key==="4") setMode("rd"); else if (e.key==="5") setMode("lenia");
+    else if (e.key==="1") setMode("ant"); else if (e.key==="2") setMode("life"); else if (e.key==="3") setMode("grazers"); else if (e.key==="4") setMode("rd"); else if (e.key==="5") setMode("lenia"); else if (e.key==="6") setMode("phys");
     else if (e.key==="f"||e.key==="F") fitView();
     else if (e.key==="+"||e.key==="=") zoomAt(canvas.clientWidth/2, canvas.clientHeight/2, 1.3);
     else if (e.key==="-"||e.key==="_") zoomAt(canvas.clientWidth/2, canvas.clientHeight/2, 1/1.3);
