@@ -49,8 +49,9 @@ pure `<canvas>`.
 
 ## A world bigger than the screen
 
-The simulation runs on a world roughly **2× the viewport in each dimension**, so
-there's more universe off-screen than you can see at once. A camera lets you roam it:
+The simulation runs on a world **several times wider than the viewport** (a fixed
+cell budget caps total work, so the world grows *wider*, not denser), so there's far
+more universe off-screen than you can see at once. A camera lets you roam it:
 
 - **Scroll / pinch** to zoom toward the cursor; **drag** to pan.
 - Zoom cluster (bottom-left): `−` / `+`, **⤢ Fit** (`F`) to frame the whole world, and a **✋ Pan / ✎ Paint** toggle.

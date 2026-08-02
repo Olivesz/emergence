@@ -242,7 +242,7 @@
   var RD_LUT = makeLUT([[0,"#0a0b14"],[0.15,"#0e2f46"],[0.32,"#155e6b"],[0.5,"#1c8fa8"],[0.62,"#3ec7d6"],[0.74,"#7c6bd6"],[0.86,"#c264e6"],[0.94,"#ff5591"],[1,"#ffe0ef"]]);
   var LENIA_LUT = makeLUT([[0,"#0a0b14"],[0.2,"#05432f"],[0.44,"#0aa05c"],[0.66,"#22d37e"],[0.85,"#57f0a0"],[1,"#8fffc0"]]);
 
-  var WORLD_MULT = 2.0;                 // world is this many screens across
+  var WORLD_MULT = 5.0;                 // world is up to this many screens across
   var cell = 6;                         // native world px per cell (offscreen buffer)
   var cols = 0, rows = 0, dpr = 1;
   var worldPxW = 0, worldPxH = 0;
@@ -309,20 +309,24 @@
     canvas.width = Math.floor(w*dpr); canvas.height = Math.floor(h*dpr);
     bloom.width = Math.max(1, Math.floor(canvas.width/3)); bloom.height = Math.max(1, Math.floor(canvas.height/3));
 
-    var visCols = w < 640 ? 96 : 168;                 // cells across the screen at 100% zoom
-    cell = w < 640 ? 4 : 6;
-    cols = Math.round(visCols * WORLD_MULT); rows = Math.max(20, Math.round(cols * h / w));
+    var visCols = w < 640 ? 84 : 150;                 // cells across the screen at 100% zoom
+    cell = w < 640 ? 4 : 5;
+    var dCols = Math.round(visCols * WORLD_MULT), dRows = Math.max(20, Math.round(dCols * h / w));
+    var MAXCELLS = 220000, totCells = dCols*dRows;    // cap total work; the world gets wider, not denser
+    if (totCells > MAXCELLS) { var sf = Math.sqrt(MAXCELLS/totCells); dCols = Math.round(dCols*sf); dRows = Math.round(dRows*sf); }
+    cols = dCols; rows = dRows;
     worldPxW = cols*cell; worldPxH = rows*cell;
     wc.width = worldPxW; wc.height = worldPxH;
 
     scaleDefault = w / (visCols*cell);
-    scaleMin = Math.min(scaleDefault, Math.min(w/worldPxW, h/worldPxH));
-    scaleMax = scaleDefault * 6;
+    var fit = Math.min(w/worldPxW, h/worldPxH);
+    scaleMin = Math.min(scaleDefault, fit*0.55);       // allow zooming out well past the whole world
+    scaleMax = scaleDefault * 8;
 
     var n = cols*rows;
     state=new Uint8Array(n); next=new Uint8Array(n); age=new Uint16Array(n); heat=new Float32Array(n);
     u=new Float32Array(n); v=new Float32Array(n); u2=new Float32Array(n); v2=new Float32Array(n);
-    LW = Math.round(cols*0.58); LH = Math.max(30, Math.round(LW*rows/cols)); L_R = Math.max(8, Math.round(LW/14));
+    LW = Math.min(200, Math.round(cols*0.5)); LH = Math.max(30, Math.round(LW*rows/cols)); L_R = Math.max(8, Math.round(LW/14));
     lenia=new Float32Array(LW*LH); leniaNext=new Float32Array(LW*LH); buildLeniaKernel();
 
     setDefaultView(); reset();
