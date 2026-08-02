@@ -215,6 +215,7 @@
           <button class="seed" data-phys="network" aria-pressed="true">Connect the cities</button>
           <button class="seed" data-phys="veins">Free veins</button>
           <button class="seed" data-phys="maze">Solve a maze</button>
+          <button class="seed" data-phys="flow">Flow physics</button>
         </div>
         <span class="hint">&#9998; tool drops food to connect</span>
       </div>
@@ -291,6 +292,11 @@
   var mazeDist, mazeQueue, mazeHead = 0, mazeTail = 0, mazeSolved = false, mazePath = null;
   var mazeA = 0, mazeB = 0, mazeExplored = 0, mazeTime = 0, mazeOpen = 1;
   var mazeBg = document.createElement("canvas"), mazeBgCtx = mazeBg.getContext("2d");
+  // Tero flow-conductivity solver (the organism's actual physics): a resistor network on
+  // the open cells. Current in at start, out at end; tubes with big flux thicken (D up),
+  // the rest starve — dead-ends cut, shortest of competing routes wins.
+  var flowNode, flowCell, flowN = 0, flowAdjStart, flowAdjNode, flowAdjEdge, edgeU, edgeV, edgeD, flowEN = 0;
+  var flowP, flowA = 0, flowB = 0, flowMaxD = 1, flowTube = 0;
 
   // Abelian sandpile (self-organized criticality): heights in `age`, avalanches via a stack
   var sandKind = "pile", lastAval = 0, sandStack;
@@ -395,6 +401,7 @@
   function seedPhys(kind){
     u.fill(0); u2.fill(0); food = []; physWalls = false;
     if (kind==="maze"){ seedPhysMaze(); return; }
+    if (kind==="flow"){ seedPhysFlow(); return; }
     agN = Math.min(24000, Math.round(cols*rows*0.10));
     agX = new Float32Array(agN); agY = new Float32Array(agN); agA = new Float32Array(agN);
     var cx = cols/2, cy = rows/2;
@@ -472,6 +479,84 @@
     mazePath.push(mazeA);
   }
 
+  // ---- Tero flow-conductivity solver on a braided maze ----
+  function seedPhysFlow(){
+    physWalls = true; state.fill(0); food = [];
+    var B = 4, reg = Math.max(40, Math.round(Math.min(visSpan, visSpan*rows/cols)*0.98));
+    var gN = ((reg/B)|0)|1; if (gN<9) gN=9; var mc=(gN-1)/2, span=gN*B;
+    var x0=(cols-span)>>1, y0=(rows-span)>>1;
+    var Gopen=new Uint8Array(gN*gN); function gi(x,y){ return y*gN+x; }
+    var visited=new Uint8Array(mc*mc), st=new Int32Array(mc*mc), sp=0, mdx=[1,-1,0,0], mdy=[0,0,1,-1];
+    st[sp++]=0; visited[0]=1; Gopen[gi(1,1)]=1;
+    while (sp>0){ var cur=st[sp-1], ci=cur%mc, cj=(cur/mc)|0, opts=[];
+      for (var d=0;d<4;d++){ var ni=ci+mdx[d], nj=cj+mdy[d]; if (ni>=0&&nj>=0&&ni<mc&&nj<mc && !visited[nj*mc+ni]) opts.push(d); }
+      if (!opts.length){ sp--; continue; }
+      var dd=opts[(Math.random()*opts.length)|0], ai=ci+mdx[dd], aj=cj+mdy[dd];
+      visited[aj*mc+ai]=1; Gopen[gi(2*ai+1,2*aj+1)]=1; Gopen[gi(ci+ai+1,cj+aj+1)]=1; st[sp++]=aj*mc+ai;
+    }
+    // braid: knock down interior walls to add loops (competing routes)
+    for (var by2=1;by2<gN-1;by2++) for (var bx2=1;bx2<gN-1;bx2++){ if (Gopen[gi(bx2,by2)]) continue; if ((((bx2&1)^(by2&1))===1) && Math.random()<0.30) Gopen[gi(bx2,by2)]=1; }
+    for (var gy=0;gy<gN;gy++) for (var gx=0;gx<gN;gx++){ if (Gopen[gi(gx,gy)]) continue;
+      for (var wby=0;wby<B;wby++) for (var wbx=0;wbx<B;wbx++){ var wx=x0+gx*B+wbx, wy=y0+gy*B+wby; if (wx>=0&&wy>=0&&wx<cols&&wy<rows) state[idx(wx,wy)]=1; } }
+    // nodes = open cells inside the region
+    if (!flowNode || flowNode.length!==cols*rows) flowNode=new Int32Array(cols*rows);
+    flowNode.fill(-1);
+    var nodes=[];
+    for (var yy=y0;yy<y0+span;yy++) for (var xx=x0;xx<x0+span;xx++){ if (xx<0||yy<0||xx>=cols||yy>=rows) continue; var cc=yy*cols+xx; if (state[cc]===0){ flowNode[cc]=nodes.length; nodes.push(cc); } }
+    flowN=nodes.length; flowCell=Int32Array.from(nodes);
+    var ax=x0+B+(B>>1), ay=y0+B+(B>>1), bx=x0+(gN-2)*B+(B>>1), by=y0+(gN-2)*B+(B>>1);
+    flowA=flowNode[ay*cols+ax]; flowB=flowNode[by*cols+bx];
+    // edges (right & down between open cells)
+    var eu=[], ev=[];
+    for (var n=0;n<flowN;n++){ var c2=flowCell[n], x=c2%cols, y=(c2/cols)|0;
+      if (x+1<cols && flowNode[c2+1]>=0){ eu.push(n); ev.push(flowNode[c2+1]); }
+      if (y+1<rows && flowNode[c2+cols]>=0){ eu.push(n); ev.push(flowNode[c2+cols]); } }
+    flowEN=eu.length; edgeU=Int32Array.from(eu); edgeV=Int32Array.from(ev); edgeD=new Float32Array(flowEN); edgeD.fill(0.4);
+    // CSR adjacency
+    var deg=new Int32Array(flowN);
+    for (var e=0;e<flowEN;e++){ deg[edgeU[e]]++; deg[edgeV[e]]++; }
+    flowAdjStart=new Int32Array(flowN+1);
+    for (var q=0;q<flowN;q++) flowAdjStart[q+1]=flowAdjStart[q]+deg[q];
+    flowAdjNode=new Int32Array(flowEN*2); flowAdjEdge=new Int32Array(flowEN*2);
+    var cur2=Int32Array.from(flowAdjStart);
+    for (var e2=0;e2<flowEN;e2++){ var a=edgeU[e2], b=edgeV[e2]; flowAdjNode[cur2[a]]=b; flowAdjEdge[cur2[a]]=e2; cur2[a]++; flowAdjNode[cur2[b]]=a; flowAdjEdge[cur2[b]]=e2; cur2[b]++; }
+    // pressure init: BFS-distance gradient from A (helps the relaxation converge)
+    flowP=new Float32Array(flowN);
+    var bq=new Int32Array(flowN), bh=0,bt=0, dist=new Int32Array(flowN); dist.fill(-1);
+    dist[flowA]=0; bq[bt++]=flowA;
+    while (bh<bt){ var nn=bq[bh++]; for (var k=flowAdjStart[nn];k<flowAdjStart[nn+1];k++){ var m=flowAdjNode[k]; if (dist[m]<0){ dist[m]=dist[nn]+1; bq[bt++]=m; } } }
+    var dB=dist[flowB]>0?dist[flowB]:1;
+    for (var n3=0;n3<flowN;n3++){ var dv=dist[n3]<0?dB:dist[n3]; flowP[n3]=1-Math.min(1,dv/dB); }
+    flowP[flowB]=0; flowMaxD=1; flowTube=flowN;
+    mazeBg.width=worldPxW; mazeBg.height=worldPxH; mazeBgCtx.clearRect(0,0,worldPxW,worldPxH); mazeBgCtx.fillStyle="#333a4e";
+    for (var ry=0;ry<rows;ry++) for (var rx=0;rx<cols;rx++){ if (state[idx(rx,ry)]===1) mazeBgCtx.fillRect(rx*cell,ry*cell,cell,cell); }
+    setDefaultView();
+  }
+  function stepPhysFlow(times){
+    var K=8, omega=1.8, rate=0.2, mu=0.35, Dmin=0.02, I0=1.0;
+    for (var s=0;s<times;s++){
+      for (var sweep=0;sweep<K;sweep++){
+        for (var i=0;i<flowN;i++){ if (i===flowB) continue;   // sink pinned to 0
+          var num=0, den=0;
+          for (var k=flowAdjStart[i];k<flowAdjStart[i+1];k++){ var dEdge=edgeD[flowAdjEdge[k]]; num+=dEdge*flowP[flowAdjNode[k]]; den+=dEdge; }
+          if (den>1e-9){ var bi=(i===flowA)?I0:0; flowP[i]+=omega*(((num+bi)/den)-flowP[i]); }
+        }
+      }
+      var mx=Dmin;
+      for (var e=0;e<flowEN;e++){ var qf=edgeD[e]*(flowP[edgeU[e]]-flowP[edgeV[e]]); if (qf<0) qf=-qf;
+        var nd=edgeD[e]+rate*(qf-mu*edgeD[e]); if (nd<Dmin) nd=Dmin; edgeD[e]=nd; if (nd>mx) mx=nd; }
+      flowMaxD=mx; steps++;
+    }
+  }
+  function renderPhysFlow(){
+    wctx.drawImage(mazeBg,0,0);
+    var thr=flowMaxD*0.28, tube=0;
+    for (var i=0;i<flowN;i++){ var md=0; for (var k=flowAdjStart[i];k<flowAdjStart[i+1];k++){ var d=edgeD[flowAdjEdge[k]]; if (d>md) md=d; }
+      if (md>0.04){ var c2=flowCell[i], x=c2%cols, y=(c2/cols)|0, b=md/flowMaxD; var li=(Math.min(1,b*1.15)*255)|0; wctx.fillStyle=PHYS_LUT[li]; wctx.fillRect(x*cell,y*cell,cell,cell); if (md>thr) tube++; } }
+    flowTube=tube; pop=tube;
+    drawFoodNode(flowCell[flowA],"#34d399"); drawFoodNode(flowCell[flowB],"#ff3d81");
+  }
+
   // ---- steps ----
   // Sandpile: drop a grain; any cell reaching 4 topples one grain to each neighbor,
   // which can cascade. Avalanche sizes follow a power law — the signature of SOC.
@@ -540,7 +625,7 @@
   // ---- render (into the offscreen world, then composite through the camera) ----
   function render() {
     wctx.setTransform(1,0,0,1,0,0); wctx.fillStyle=VOID; wctx.fillRect(0,0,worldPxW,worldPxH); pop=0;
-    if (mode==="ant") renderTurmite(); else if (mode==="life") renderLife(); else if (mode==="grazers") renderGrazers(); else if (mode==="rd") renderRD(); else if (mode==="lenia") renderLenia(); else if (mode==="phys") { if (physKind==="maze") renderMazeSolve(); else renderPhys(); } else renderSand();
+    if (mode==="ant") renderTurmite(); else if (mode==="life") renderLife(); else if (mode==="grazers") renderGrazers(); else if (mode==="rd") renderRD(); else if (mode==="lenia") renderLenia(); else if (mode==="phys") { if (physKind==="maze") renderMazeSolve(); else if (physKind==="flow") renderPhysFlow(); else renderPhys(); } else renderSand();
     ctx.setTransform(dpr,0,0,dpr,0,0); ctx.fillStyle=VOID; ctx.fillRect(0,0,canvas.clientWidth,canvas.clientHeight);
     ctx.imageSmoothingEnabled=true;
     var s=view.scale; ctx.drawImage(wc, 0,0,worldPxW,worldPxH, -view.x*s, -view.y*s, worldPxW*s, worldPxH*s);
@@ -608,7 +693,7 @@
   function speedSteps(){ var vv=parseInt(document.getElementById("speed").value,10); return Math.max(1, Math.round(Math.pow(vv/6,2))+1); }
   var raf;
   function tick(){ try { if (running) advance(); render(); updateReadouts(); } catch(e){} raf=requestAnimationFrame(tick); }
-  function advance(){ if (mode==="ant") stepTurmite(speedSteps()); else if (mode==="life"){ var f=Math.max(1,Math.round(speedSteps()/8)); for (var k=0;k<f;k++) stepLife(); } else if (mode==="grazers") stepGrazers(speedSteps()); else if (mode==="rd"){ var it=Math.min(24,Math.max(4,speedSteps())); stepRD(it); } else if (mode==="lenia"){ var ls=Math.max(1,Math.min(4,Math.round(speedSteps()/6))); stepLenia(ls); } else if (mode==="phys"){ if (physKind==="maze") stepMazeSolve(Math.max(1,Math.round(speedSteps()/3))); else { var ps=Math.max(1,Math.min(4,Math.round(speedSteps()/8))); stepPhys(ps); } } else { stepSand(speedSteps()*4); } }
+  function advance(){ if (mode==="ant") stepTurmite(speedSteps()); else if (mode==="life"){ var f=Math.max(1,Math.round(speedSteps()/8)); for (var k=0;k<f;k++) stepLife(); } else if (mode==="grazers") stepGrazers(speedSteps()); else if (mode==="rd"){ var it=Math.min(24,Math.max(4,speedSteps())); stepRD(it); } else if (mode==="lenia"){ var ls=Math.max(1,Math.min(4,Math.round(speedSteps()/6))); stepLenia(ls); } else if (mode==="phys"){ if (physKind==="maze") stepMazeSolve(Math.max(1,Math.round(speedSteps()/3))); else if (physKind==="flow") stepPhysFlow(Math.max(1,Math.round(speedSteps()/6))); else { var ps=Math.max(1,Math.min(4,Math.round(speedSteps()/8))); stepPhys(ps); } } else { stepSand(speedSteps()*4); } }
 
   // ---- readouts + reveal ----
   var stepVal=document.getElementById("stepVal"), popVal=document.getElementById("popVal"), reveal=document.getElementById("reveal");
@@ -628,6 +713,7 @@
   }
 
   // ---- UI ----
+  function physLabels(){ if (physKind==="maze"){ stepLab.textContent="Explored"; popLab.textContent="Path"; } else if (physKind==="flow"){ stepLab.textContent="Iterations"; popLab.textContent="Tube"; } else { stepLab.textContent="Time"; popLab.textContent="Network"; } }
   function setMode(m){
     mode=m;
     document.querySelectorAll(".act").forEach(function(b){ b.setAttribute("aria-selected", String(b.dataset.mode===m)); });
@@ -637,7 +723,7 @@
     else if (m==="grazers"){ stepLab.textContent="Ant steps"; popLab.textContent="Cells alive"; }
     else if (m==="rd"){ stepLab.textContent="Iterations"; popLab.textContent="Reagent"; }
     else if (m==="lenia"){ stepLab.textContent="Time"; popLab.textContent="Biomass"; }
-    else if (m==="phys"){ if (physKind==="maze"){ stepLab.textContent="Explored"; popLab.textContent="Path"; } else { stepLab.textContent="Time"; popLab.textContent="Network"; } }
+    else if (m==="phys"){ physLabels(); }
     else { stepLab.textContent="Grains"; popLab.textContent="Last avalanche"; }
     genHint.textContent = m==="grazers"?"ants read life · life reshapes ants" : m==="rd"?"two chemicals · feed & kill" : m==="lenia"?"continuous life · a smooth Game of Life" : m==="phys"?"no brain · a chemical trail that thinks" : m==="sand"?"one rule · avalanches at every scale" : "";
     reset();
@@ -660,7 +746,7 @@
   document.querySelectorAll("#plantMode .seed").forEach(function(s){ s.addEventListener("click", function(){ plantMode=s.dataset.plant; document.querySelectorAll("#plantMode .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); }); });
   document.querySelectorAll("#rdSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ rdKind=s.dataset.rd; document.querySelectorAll("#rdSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); reset(); }); });
   document.querySelectorAll("#leniaSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ leniaSeedKind=s.dataset.lenia; document.querySelectorAll("#leniaSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); reset(); }); });
-  document.querySelectorAll("#physSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ physKind=s.dataset.phys; document.querySelectorAll("#physSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); if (physKind==="maze"){ stepLab.textContent="Explored"; popLab.textContent="Path"; } else { stepLab.textContent="Time"; popLab.textContent="Network"; } reset(); }); });
+  document.querySelectorAll("#physSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ physKind=s.dataset.phys; document.querySelectorAll("#physSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); physLabels(); reset(); }); });
   document.querySelectorAll("#sandSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ sandKind=s.dataset.sand; document.querySelectorAll("#sandSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); reset(); }); });
 
   document.getElementById("zoomIn").addEventListener("click", function(){ zoomAt(canvas.clientWidth/2, canvas.clientHeight/2, 1.3); });
