@@ -289,7 +289,8 @@
   // Maze solver: the organism grows out from the START, and the moment it reaches the
   // END the shortest connecting path is revealed. Deterministic (breadth-first growth).
   var mazeDist, mazeQueue, mazeHead = 0, mazeTail = 0, mazeSolved = false, mazePath = null;
-  var mazeA = 0, mazeB = 0, mazeExplored = 0, mazeTime = 0;
+  var mazeA = 0, mazeB = 0, mazeExplored = 0, mazeTime = 0, mazeOpen = 1;
+  var mazeBg = document.createElement("canvas"), mazeBgCtx = mazeBg.getContext("2d");
 
   // Abelian sandpile (self-organized criticality): heights in `age`, avalanches via a stack
   var sandKind = "pile", lastAval = 0, sandStack;
@@ -325,7 +326,7 @@
   }
   function centerView() { view.x = (worldPxW - canvas.clientWidth/view.scale)/2; view.y = (worldPxH - canvas.clientHeight/view.scale)/2; clampView(); }
   function setDefaultView() { view.scale = scaleDefault; centerView(); }
-  function fitView() { view.scale = scaleMin; centerView(); }
+  function fitView() { view.scale = Math.min(canvas.clientWidth/worldPxW, canvas.clientHeight/worldPxH); centerView(); }
   function zoomAt(cx, cy, factor) {
     var s = Math.max(scaleMin, Math.min(scaleMax, view.scale*factor)); if (s===view.scale) return;
     var wx = view.x + cx/view.scale, wy = view.y + cy/view.scale;
@@ -413,34 +414,41 @@
   // Build a maze (recursive backtracker) into `state` as walls, with food at two corners.
   function seedPhysMaze(){
     physWalls = true; state.fill(0);
-    var S = Math.round(Math.min(visSpan, visSpan*rows/cols)*0.92);
-    var mc = 7, gN = 2*mc+1, B = Math.max(6, Math.floor(S/gN)), span = B*gN;
-    var x0 = (cols-span)>>1, y0 = (rows-span)>>1;
-    var Gopen = new Uint8Array(gN*gN); function gidx(x,y){ return y*gN+x; }
-    var visited = new Uint8Array(mc*mc), stack=[0], mdx=[1,-1,0,0], mdy=[0,0,1,-1];
-    visited[0]=1; Gopen[gidx(1,1)]=1;
-    while (stack.length){
-      var cur=stack[stack.length-1], ci=cur%mc, cj=(cur/mc)|0, opts=[];
-      for (var d=0;d<4;d++){ var ni=ci+mdx[d], nj=cj+mdy[d]; if (ni>=0&&nj>=0&&ni<mc&&nj<mc && !visited[nj*mc+ni]) opts.push(d); }
-      if (!opts.length){ stack.pop(); continue; }
+    // A huge, dense labyrinth filling (almost) the whole world. Corridors are thin
+    // (B world-cells) so thousands of maze cells pack in — extremely complicated.
+    var B = cols > 480 ? 3 : 4;
+    var margin = Math.max(B, Math.round(Math.min(cols,rows)*0.02));
+    var mcX = Math.max(6, ((((cols-2*margin)/B)-1)/2)|0), mcY = Math.max(6, ((((rows-2*margin)/B)-1)/2)|0);
+    var gX = 2*mcX+1, gY = 2*mcY+1, spanW = gX*B, spanH = gY*B;
+    var x0 = (cols-spanW)>>1, y0 = (rows-spanH)>>1;
+    var Gopen = new Uint8Array(gX*gY); function gi(x,y){ return y*gX+x; }
+    var visited = new Uint8Array(mcX*mcY), stack=new Int32Array(mcX*mcY), sp=0, mdx=[1,-1,0,0], mdy=[0,0,1,-1];
+    stack[sp++]=0; visited[0]=1; Gopen[gi(1,1)]=1;
+    while (sp>0){
+      var cur=stack[sp-1], ci=cur%mcX, cj=(cur/mcX)|0, opts=[];
+      for (var d=0;d<4;d++){ var ni=ci+mdx[d], nj=cj+mdy[d]; if (ni>=0&&nj>=0&&ni<mcX&&nj<mcY && !visited[nj*mcX+ni]) opts.push(d); }
+      if (!opts.length){ sp--; continue; }
       var dd=opts[(Math.random()*opts.length)|0], ai=ci+mdx[dd], aj=cj+mdy[dd];
-      visited[aj*mc+ai]=1; Gopen[gidx(2*ai+1,2*aj+1)]=1; Gopen[gidx(ci+ai+1, cj+aj+1)]=1; stack.push(aj*mc+ai);
+      visited[aj*mcX+ai]=1; Gopen[gi(2*ai+1,2*aj+1)]=1; Gopen[gi(ci+ai+1, cj+aj+1)]=1; stack[sp++]=aj*mcX+ai;
     }
-    for (var gy=0;gy<gN;gy++) for (var gx=0;gx<gN;gx++){ if (Gopen[gidx(gx,gy)]) continue;
+    for (var gy=0;gy<gY;gy++) for (var gx=0;gx<gX;gx++){ if (Gopen[gi(gx,gy)]) continue;
       for (var by=0;by<B;by++) for (var bx=0;bx<B;bx++){ var wx=x0+gx*B+bx, wy=y0+gy*B+by; if (wx>=0&&wy>=0&&wx<cols&&wy<rows) state[idx(wx,wy)]=1; } }
-    // start / end life-points at opposite corners of the maze
-    var ax=x0+B+(B>>1), ay=y0+B+(B>>1), bx=x0+(2*mc-1)*B+(B>>1), by=y0+(2*mc-1)*B+(B>>1);
+    var ax=x0+B+(B>>1), ay=y0+B+(B>>1), bx=x0+(2*mcX-1)*B+(B>>1), by=y0+(2*mcY-1)*B+(B>>1);
     mazeA=ay*cols+ax; mazeB=by*cols+bx;
     if (!mazeDist || mazeDist.length!==cols*rows){ mazeDist=new Int32Array(cols*rows); mazeQueue=new Int32Array(cols*rows); }
     mazeDist.fill(-1); u.fill(0);
     mazeHead=0; mazeTail=0; mazeQueue[mazeTail++]=mazeA; mazeDist[mazeA]=0; u[mazeA]=1;
     mazeSolved=false; mazePath=null; mazeExplored=1; mazeTime=0; agN=0;
+    mazeOpen=0; for (var oy=0;oy<spanH;oy++) for (var ox=0;ox<spanW;ox++){ var px=x0+ox, py=y0+oy; if (px>=0&&py>=0&&px<cols&&py<rows && state[idx(px,py)]===0) mazeOpen++; }
+    mazeBg.width=worldPxW; mazeBg.height=worldPxH; mazeBgCtx.clearRect(0,0,worldPxW,worldPxH); mazeBgCtx.fillStyle="#333a4e";
+    for (var yy=0;yy<rows;yy++) for (var xx=0;xx<cols;xx++){ if (state[idx(xx,yy)]===1) mazeBgCtx.fillRect(xx*cell,yy*cell,cell,cell); }
+    fitView();
   }
   // Breadth-first growth from the start; reaching the end reveals the shortest path.
   function stepMazeSolve(times){
     mazeTime += times;
     if (mazeSolved) return;
-    var budget = Math.max(8, times*10), c=cols, r=rows;
+    var budget = Math.max(30, times * Math.max(4, (mazeOpen/1400)|0)), c=cols, r=rows;
     while (budget-- > 0 && mazeHead < mazeTail){
       var i=mazeQueue[mazeHead++], x=i%c, y=(i/c)|0, d=mazeDist[i], nb;
       if (x>0){       nb=i-1; if (state[nb]===0 && mazeDist[nb]<0){ mazeDist[nb]=d+1; u[nb]=1; mazeQueue[mazeTail++]=nb; mazeExplored++; if (nb===mazeB){ buildMazePath(); break; } } }
@@ -575,7 +583,7 @@
     wctx.globalCompositeOperation="lighter"; wctx.fillStyle=g; wctx.beginPath(); wctx.arc(px,py,rr,0,Math.PI*2); wctx.fill(); wctx.globalCompositeOperation="source-over";
   }
   function renderMazeSolve(){
-    wctx.fillStyle="#191c26"; for (var wy=0;wy<rows;wy++) for (var wx=0;wx<cols;wx++){ if (state[idx(wx,wy)]===1) wctx.fillRect(wx*cell,wy*cell,cell,cell); }
+    wctx.drawImage(mazeBg, 0, 0);   // static walls, pre-rendered once at seed
     // explored corridors: bright growing frontier (u fading) over a dim explored floor
     var floor = mazeSolved ? 0.10 : 0.32;
     for (var y=0;y<rows;y++) for (var x=0;x<cols;x++){ var i=idx(x,y); if (mazeDist[i]>=0){ var b=u[i]; if (b<floor) b=floor; if (b>1) b=1; wctx.fillStyle=PHYS_LUT[(b*255)|0]; wctx.fillRect(x*cell,y*cell,cell,cell); } }
