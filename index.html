@@ -299,6 +299,7 @@
   var flowNode, flowCell, flowN = 0, flowAdjStart, flowAdjNode, flowAdjEdge, edgeU, edgeV, edgeD, flowEN = 0;
   var flowP, flowA = 0, flowB = 0, flowMaxD = 1, flowTube = 0;
   var flowBW = 4;                      // corridor width (world cells) — sets max tube thickness
+  var occ, dead, flowFix, flowSink = false;  // foraging: reached cells / peeled dead-ends / goal found?
   var slimePathList, slimePathN = 0;   // the true A-B connecting corridor that stays fed
 
   // Abelian sandpile (self-organized criticality): heights in `age`, avalanches via a stack
@@ -508,13 +509,14 @@
     var eu=[], ev=[];
     for (var j3=0;j3<mc;j3++) for (var i3=0;i3<mc;i3++){ var n=j3*mc+i3; if (i3<mc-1 && adjR[n]){ eu.push(n); ev.push(n+1); } if (j3<mc-1 && adjD[n]){ eu.push(n); ev.push(n+mc); } }
     flowEN=eu.length; edgeU=Int32Array.from(eu); edgeV=Int32Array.from(ev);
-    edgeD=new Float32Array(flowEN); for (var e=0;e<flowEN;e++) edgeD[e]=0.5+Math.random()*0.5;   // start FULL (0.5-1), like their code
+    edgeD=new Float32Array(flowEN); edgeD.fill(0.02);   // start EMPTY — the slime hasn't been here yet
     var deg=new Int32Array(flowN); for (var e2=0;e2<flowEN;e2++){ deg[edgeU[e2]]++; deg[edgeV[e2]]++; }
     flowAdjStart=new Int32Array(flowN+1); for (var q=0;q<flowN;q++) flowAdjStart[q+1]=flowAdjStart[q]+deg[q];
     flowAdjNode=new Int32Array(flowEN*2); flowAdjEdge=new Int32Array(flowEN*2);
     var cc2=Int32Array.from(flowAdjStart);
     for (var e3=0;e3<flowEN;e3++){ var a=edgeU[e3], b=edgeV[e3]; flowAdjNode[cc2[a]]=b; flowAdjEdge[cc2[a]]=e3; cc2[a]++; flowAdjNode[cc2[b]]=a; flowAdjEdge[cc2[b]]=e3; cc2[b]++; }
     flowA=0; flowB=mc*mc-1; flowP=new Float32Array(flowN); flowMaxD=1;
+    occ=new Uint8Array(flowN); occ[flowA]=1; dead=new Uint8Array(flowN); flowFix=new Int8Array(flowN); flowSink=false;   // start at the source only
     // background: draw the maze corridors so the labyrinth is visible under the tubes
     mazeBg.width=worldPxW; mazeBg.height=worldPxH; mazeBgCtx.clearRect(0,0,worldPxW,worldPxH); mazeBgCtx.fillStyle="#1b1f2b";
     function blk(gx,gy){ mazeBgCtx.fillRect((x0+gx*B)*cell,(y0+gy*B)*cell,B*cell,B*cell); }
@@ -524,30 +526,50 @@
     setDefaultView();
   }
   function stepPhysFlow(times){
-    var I0=1.0, delta=0.20, muExp=1.8, Dmin=0.006, sweeps=Math.min(400, flowN*2), omega=1.75;
+    // FORAGING: the slime grows outward from the source. Every frontier tip is a temporary
+    // current-drain (protoplasm pushing into new corridors); dead-ends stop being drains and
+    // starve; once the frontier reaches the goal, the goal is the only drain → shortest tube wins.
+    var delta=0.25, muExp=1.8, Dmin=0.02, Dmax=1.4, Dgrow=0.30, growP=0.16, peelP=0.55, sweeps=Math.min(300, flowN*2), omega=1.7;
     for (var s=0;s<times;s++){
-      // solve node pressures ~exactly (converged SOR): current I0 in at source, sink pinned 0
-      for (var sw=0;sw<sweeps;sw++){
-        for (var i=0;i<flowN;i++){ if (i===flowB) continue;
-          var num=0, den=0;
-          for (var k=flowAdjStart[i];k<flowAdjStart[i+1];k++){ var dE=edgeD[flowAdjEdge[k]]; num+=dE*flowP[flowAdjNode[k]]; den+=dE; }
-          if (den>1e-9){ var bi=(i===flowA)?I0:0; flowP[i]+=omega*(((num+bi)/den)-flowP[i]); }
-        }
+      // 1. grow the frontier into unexplored corridors (stops once the goal is found)
+      if (!flowSink){
+        var snap=occ.slice();
+        for (var i=0;i<flowN;i++){ if (!snap[i]) continue;
+          for (var k=flowAdjStart[i];k<flowAdjStart[i+1];k++){ var m=flowAdjNode[k]; if (!occ[m] && !dead[m] && Math.random()<growP){ occ[m]=1; var ee=flowAdjEdge[k]; if (edgeD[ee]<Dgrow) edgeD[ee]=Dgrow; } } }
+        if (occ[flowB]) flowSink=true;
       }
-      var mx=Dmin;
-      for (var e=0;e<flowEN;e++){ var qf=edgeD[e]*(flowP[edgeU[e]]-flowP[edgeV[e]]); if (qf<0) qf=-qf;
-        var nd=edgeD[e]+delta*(Math.pow(qf,muExp)-edgeD[e]); if (nd<Dmin) nd=Dmin; edgeD[e]=nd; if (nd>mx) mx=nd; }
-      flowMaxD=mx; steps++;
+      // 2. peel dead-end branches: a reached tip that can't grow and has one link retracts, and is
+      //    marked dead so it is never re-explored — the slime cuts dead-ends as it goes.
+      for (var p=0;p<flowN;p++){ if (!occ[p] || p===flowA || p===flowB) continue;
+        var live=0, on=0;
+        for (var kp=flowAdjStart[p];kp<flowAdjStart[p+1];kp++){ var mp=flowAdjNode[kp]; if (occ[mp]) on++; else if (!dead[mp]) live++; }
+        if (live===0 && on<=1 && Math.random()<peelP){ occ[p]=0; dead[p]=1; } }
+      // 3. once the goal is found, run the flow as a CURRENT source (bounded flux) so the
+      //    shortest route carries the most current, thickens, and the loops starve — Tero.
+      if (flowSink){
+        var I0=1.0; flowP[flowB]=0;   // sink is the reference (p=0)
+        for (var sw=0;sw<sweeps;sw++){
+          for (var i2=0;i2<flowN;i2++){ if (!occ[i2] || i2===flowB) continue;
+            var num=0, den=0;
+            for (var k3=flowAdjStart[i2];k3<flowAdjStart[i2+1];k3++){ var mm=flowAdjNode[k3]; if (!occ[mm]) continue; var dc=edgeD[flowAdjEdge[k3]]; num+=dc*flowP[mm]; den+=dc; }
+            if (den>1e-9){ var bi=(i2===flowA)?I0:0; flowP[i2]+=omega*(((num+bi)/den)-flowP[i2]); } } }
+        var mx=Dmin;
+        for (var e=0;e<flowEN;e++){ if (!occ[edgeU[e]] || !occ[edgeV[e]]) continue; var qf=edgeD[e]*(flowP[edgeU[e]]-flowP[edgeV[e]]); if (qf<0) qf=-qf;
+          var nd=edgeD[e]+delta*(Math.pow(qf,muExp)-edgeD[e]); if (nd<Dmin) nd=Dmin; edgeD[e]=nd; if (nd>mx) mx=nd; }
+        flowMaxD=mx;
+      }
+      steps++;
     }
   }
   function renderPhysFlow(){
     wctx.drawImage(mazeBg,0,0);
     var pulse=0.82+0.18*Math.sin(steps*0.09), maxW=flowBW*cell*0.92, tube=0;   // tube ∝ conductivity
     wctx.globalCompositeOperation="lighter"; wctx.lineCap="round"; wctx.lineJoin="round";
-    for (var e=0;e<flowEN;e++){ var d=edgeD[e]/flowMaxD; if (d<0.04) continue;
+    for (var e=0;e<flowEN;e++){ if (!occ[edgeU[e]] || !occ[edgeV[e]]) continue; var d=edgeD[e]/flowMaxD;
+      var b=d<0.18?0.18:d;   // reached tubes always show as a dim body; bright where flux runs
       var u0=flowCell[edgeU[e]], v0=flowCell[edgeV[e]];
       var ax=(u0%cols)*cell+cell/2, ay=((u0/cols)|0)*cell+cell/2, bx=(v0%cols)*cell+cell/2, by=((v0/cols)|0)*cell+cell/2;
-      wctx.lineWidth=Math.max(cell*0.5, d*maxW); wctx.strokeStyle=PHYS_LUT[(Math.min(1,d*pulse*1.2)*255)|0];
+      wctx.lineWidth=Math.max(cell*0.5, d*maxW); wctx.strokeStyle=PHYS_LUT[(Math.min(1,b*pulse*1.2)*255)|0];
       wctx.beginPath(); wctx.moveTo(ax,ay); wctx.lineTo(bx,by); wctx.stroke();
       if (d>0.45) tube++; }
     wctx.globalCompositeOperation="source-over"; wctx.lineCap="butt";
