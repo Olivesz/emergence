@@ -217,6 +217,7 @@
           <button class="seed" data-phys="maze">Solve a maze</button>
           <button class="seed" data-phys="flow">Flow physics</button>
           <button class="seed" data-phys="smart">Smart solve</button>
+          <button class="seed" data-phys="tremaux">No-map walk</button>
           <button class="seed" data-phys="slimemaze">Slime maze</button>
         </div>
         <span class="hint">&#9998; tool drops food to connect</span>
@@ -303,6 +304,7 @@
   var occ, dead, flowFix, flowSink = false;  // foraging: reached cells / peeled dead-ends / goal found?
   var owner, gA, gB, parA, parB, openA, openB, smartMeet = false, smartPath, smartExplored = 0;  // bidirectional A*
   var mazeAccum = 0;                    // fractional step accumulator — lets maze-solving run in slow-mo
+  var tremCur = 0, tremCame = -1, tremMark, tremStack, tremDone = false, tremPath;  // Trémaux (no-map walker)
   var slimePathList, slimePathN = 0;   // the true A-B connecting corridor that stays fed
 
   // Abelian sandpile (self-organized criticality): heights in `age`, avalanches via a stack
@@ -410,6 +412,7 @@
     if (kind==="maze"){ seedPhysMaze(); return; }
     if (kind==="flow"){ seedPhysFlow(); return; }
     if (kind==="smart"){ seedSmart(); return; }
+    if (kind==="tremaux"){ seedTremaux(); return; }
     if (kind==="slimemaze"){ seedSlimeMaze(); return; }
     agN = Math.min(24000, Math.round(cols*rows*0.10));
     agX = new Float32Array(agN); agY = new Float32Array(agN); agA = new Float32Array(agN);
@@ -519,7 +522,7 @@
     var tries=0, sA=0, sB=0, thresh=mc*1.15;
     do { sA=(Math.random()*flowN)|0; bfsFrom(sA); sB=(Math.random()*flowN)|0; tries++; } while (tries<12 && bfsD[sB]<thresh);
     flowA=sA; flowB=sB; flowP=new Float32Array(flowN); flowMaxD=1;
-    mazeBg.width=worldPxW; mazeBg.height=worldPxH; mazeBgCtx.clearRect(0,0,worldPxW,worldPxH); mazeBgCtx.fillStyle="#1b1f2b";
+    mazeBg.width=worldPxW; mazeBg.height=worldPxH; mazeBgCtx.clearRect(0,0,worldPxW,worldPxH); mazeBgCtx.fillStyle="#39435e";
     function blk(gx,gy){ mazeBgCtx.fillRect((x0+gx*B)*cell,(y0+gy*B)*cell,B*cell,B*cell); }
     for (var bj=0;bj<mc;bj++) for (var bi=0;bi<mc;bi++){ blk(2*bi+1,2*bj+1); if (bi<mc-1 && adjR[bj*mc+bi]) blk(2*bi+2,2*bj+1); if (bj<mc-1 && adjD[bj*mc+bi]) blk(2*bi+1,2*bj+2); }
     food.push({ x:flowCell[flowA]%cols, y:(flowCell[flowA]/cols)|0 });
@@ -625,6 +628,54 @@
     wctx.globalCompositeOperation="source-over"; wctx.lineCap="butt";
     pop=smartExplored;
     drawFoodNode(flowCell[flowA],"#34d399"); drawFoodNode(flowCell[flowB],"#ff3d81");
+  }
+
+  // ---- No-map walker: TRÉMAUX'S ALGORITHM. One agent, only local sensing, no god's-eye view.
+  //      Mark each passage as you walk it; never take a twice-marked passage; prefer unmarked,
+  //      else backtrack. Guaranteed to escape ANY maze. Once-marked edges = the solution. ----
+  function seedTremaux(){
+    buildCoarseMaze(cols>480 ? 14 : 10, 0.26);
+    tremMark=new Uint8Array(flowEN); tremCur=flowA; tremCame=-1; tremDone=false; tremPath=null;
+  }
+  function stepTremaux(times){
+    for (var s=0;s<times && !tremDone;s++){
+      var cur=tremCur, s0=flowAdjStart[cur], s1=flowAdjStart[cur+1], kk=-1, camk=-1, once=-1, unmarked=[];
+      for (var k2=s0;k2<s1;k2++){ var e2=flowAdjEdge[k2]; if (tremMark[e2]===0) unmarked.push(k2); else if (tremMark[e2]===1){ if (e2===tremCame) camk=k2; else if (once<0) once=k2; } }
+      if (unmarked.length) kk=unmarked[(Math.random()*unmarked.length)|0];   // a fresh passage first
+      else if (camk>=0) kk=camk; else if (once>=0) kk=once;                   // else backtrack the way you came
+      if (kk<0){ tremDone=true; break; }
+      var ce=flowAdjEdge[kk], m=flowAdjNode[kk]; tremMark[ce]++; tremCur=m; tremCame=ce; steps++;
+      if (m===flowB){ tremDone=true; buildTremPath(); }
+    }
+  }
+  function buildTremPath(){   // solution = a path through the passages the walker actually used
+    var par=new Int32Array(flowN); par.fill(-1); var vis=new Uint8Array(flowN), q=new Int32Array(flowN), h=0,t=0;
+    vis[flowA]=1; q[t++]=flowA;
+    while (h<t){ var n=q[h++]; if (n===flowB) break; for (var k=flowAdjStart[n];k<flowAdjStart[n+1];k++){ if (tremMark[flowAdjEdge[k]]<1) continue; var mm=flowAdjNode[k]; if (!vis[mm]){ vis[mm]=1; par[mm]=n; q[t++]=mm; } } }
+    var path=[], c=flowB, g=0; while (c!==-1 && g++<flowN){ path.push(c); c=par[c]; } path.reverse();
+    tremPath = (path.length && path[0]===flowA) ? path : null;
+  }
+  function renderTremaux(){
+    wctx.drawImage(mazeBg,0,0);
+    wctx.globalCompositeOperation="lighter"; wctx.lineCap="round"; wctx.lineJoin="round";
+    var w=Math.max(cell*0.55, flowBW*cell*0.5);
+    // twice-walked passages = abandoned dead-ends (dim gray); once-walked = trail (amber)
+    for (var e=0;e<flowEN;e++){ var mk=tremMark[e]; if (!mk) continue;
+      var u0=flowCell[edgeU[e]], v0=flowCell[edgeV[e]];
+      wctx.strokeStyle = mk===2 ? "#4a4256" : "#c98a2e"; wctx.globalAlpha = mk===2 ? 0.4 : 0.75; wctx.lineWidth=w;
+      wctx.beginPath(); wctx.moveTo((u0%cols)*cell+cell/2,((u0/cols)|0)*cell+cell/2); wctx.lineTo((v0%cols)*cell+cell/2,((v0/cols)|0)*cell+cell/2); wctx.stroke(); }
+    // the found solution (only once the walker reaches the exit) glows bright
+    wctx.globalAlpha=1;
+    if (tremDone && tremPath){ var pulse=0.8+0.2*Math.sin(steps*0.12); wctx.strokeStyle=PHYS_LUT[(pulse*255)|0]; wctx.lineWidth=flowBW*cell*0.95;
+      wctx.beginPath(); for (var p=0;p<tremPath.length;p++){ var pc=flowCell[tremPath[p]], px=(pc%cols)*cell+cell/2, py=((pc/cols)|0)*cell+cell/2; if (p===0) wctx.moveTo(px,py); else wctx.lineTo(px,py); } wctx.stroke(); }
+    wctx.globalCompositeOperation="source-over"; wctx.lineCap="butt";
+    var mk2=0; for (var e3=0;e3<flowEN;e3++) if (tremMark[e3]===2) mk2++;
+    pop=mk2;
+    drawFoodNode(flowCell[flowA],"#34d399"); drawFoodNode(flowCell[flowB],"#ff3d81");
+    // the walker itself — a bright pulsing dot with only local awareness
+    if (!tremDone){ var pulse=0.7+0.3*Math.sin(steps*0.4); var ac=flowCell[tremCur], apx=(ac%cols)*cell+cell/2, apy=((ac/cols)|0)*cell+cell/2, rr=Math.max(cell*2.6,9);
+      var g=wctx.createRadialGradient(apx,apy,0,apx,apy,rr); g.addColorStop(0,"rgba(255,255,255,"+pulse+")"); g.addColorStop(0.4,"rgba(255,210,90,0.6)"); g.addColorStop(1,"rgba(255,210,90,0)");
+      wctx.globalCompositeOperation="lighter"; wctx.fillStyle=g; wctx.beginPath(); wctx.arc(apx,apy,rr,0,Math.PI*2); wctx.fill(); wctx.globalCompositeOperation="source-over"; }
   }
 
   // ---- Organic agent-based slime in a maze (the real Nakagaki experiment): the slime
@@ -783,7 +834,7 @@
   // ---- render (into the offscreen world, then composite through the camera) ----
   function render() {
     wctx.setTransform(1,0,0,1,0,0); wctx.fillStyle=VOID; wctx.fillRect(0,0,worldPxW,worldPxH); pop=0;
-    if (mode==="ant") renderTurmite(); else if (mode==="life") renderLife(); else if (mode==="grazers") renderGrazers(); else if (mode==="rd") renderRD(); else if (mode==="lenia") renderLenia(); else if (mode==="phys") { if (physKind==="maze") renderMazeSolve(); else if (physKind==="flow") renderPhysFlow(); else if (physKind==="smart") renderSmart(); else if (physKind==="slimemaze") renderSlimeMaze(); else renderPhys(); } else renderSand();
+    if (mode==="ant") renderTurmite(); else if (mode==="life") renderLife(); else if (mode==="grazers") renderGrazers(); else if (mode==="rd") renderRD(); else if (mode==="lenia") renderLenia(); else if (mode==="phys") { if (physKind==="maze") renderMazeSolve(); else if (physKind==="flow") renderPhysFlow(); else if (physKind==="smart") renderSmart(); else if (physKind==="tremaux") renderTremaux(); else if (physKind==="slimemaze") renderSlimeMaze(); else renderPhys(); } else renderSand();
     ctx.setTransform(dpr,0,0,dpr,0,0); ctx.fillStyle=VOID; ctx.fillRect(0,0,canvas.clientWidth,canvas.clientHeight);
     ctx.imageSmoothingEnabled=true;
     var s=view.scale; ctx.drawImage(wc, 0,0,worldPxW,worldPxH, -view.x*s, -view.y*s, worldPxW*s, worldPxH*s);
@@ -855,6 +906,7 @@
       if (physKind==="maze"){ mazeAccum += parseInt(document.getElementById("speed").value,10)/22; var nm=mazeAccum|0; mazeAccum-=nm; if (nm>0) stepMazeSolve(nm); }
       else if (physKind==="flow"){ mazeAccum += parseInt(document.getElementById("speed").value,10)/95; var nf=mazeAccum|0; mazeAccum-=nf; if (nf>0) stepPhysFlow(nf); }
       else if (physKind==="smart"){ mazeAccum += parseInt(document.getElementById("speed").value,10)/80; var ns=mazeAccum|0; mazeAccum-=ns; if (ns>0) stepSmart(ns); }
+      else if (physKind==="tremaux"){ mazeAccum += parseInt(document.getElementById("speed").value,10)/55; var nt=mazeAccum|0; mazeAccum-=nt; if (nt>0) stepTremaux(nt); }
       else if (physKind==="slimemaze") stepSlimeMaze(Math.max(1,Math.min(6,Math.round(speedSteps()/6))));
       else { var ps=Math.max(1,Math.min(4,Math.round(speedSteps()/8))); stepPhys(ps); }
     } else { stepSand(speedSteps()*4); } }
@@ -877,7 +929,7 @@
   }
 
   // ---- UI ----
-  function physLabels(){ if (physKind==="maze"){ stepLab.textContent="Explored"; popLab.textContent="Path"; } else if (physKind==="flow"){ stepLab.textContent="Iterations"; popLab.textContent="Tube"; } else if (physKind==="smart"){ stepLab.textContent="Steps"; popLab.textContent="Explored"; } else if (physKind==="slimemaze"){ stepLab.textContent="Time"; popLab.textContent="Tube"; } else { stepLab.textContent="Time"; popLab.textContent="Network"; } }
+  function physLabels(){ if (physKind==="maze"){ stepLab.textContent="Explored"; popLab.textContent="Path"; } else if (physKind==="flow"){ stepLab.textContent="Iterations"; popLab.textContent="Tube"; } else if (physKind==="smart"){ stepLab.textContent="Steps"; popLab.textContent="Explored"; } else if (physKind==="tremaux"){ stepLab.textContent="Moves"; popLab.textContent="Dead-ends"; } else if (physKind==="slimemaze"){ stepLab.textContent="Time"; popLab.textContent="Tube"; } else { stepLab.textContent="Time"; popLab.textContent="Network"; } }
   function setMode(m){
     mode=m;
     document.querySelectorAll(".act").forEach(function(b){ b.setAttribute("aria-selected", String(b.dataset.mode===m)); });
