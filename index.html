@@ -298,7 +298,7 @@
   // the rest starve — dead-ends cut, shortest of competing routes wins.
   var flowNode, flowCell, flowN = 0, flowAdjStart, flowAdjNode, flowAdjEdge, edgeU, edgeV, edgeD, flowEN = 0;
   var flowP, flowA = 0, flowB = 0, flowMaxD = 1, flowTube = 0;
-  var flowAgents, flowAgN = 0;         // particles that stream along the tubes = the living slime
+  var flowBW = 4;                      // corridor width (world cells) — sets max tube thickness
   var slimePathList, slimePathN = 0;   // the true A-B connecting corridor that stays fed
 
   // Abelian sandpile (self-organized criticality): heights in `age`, avalanches via a stack
@@ -484,94 +484,73 @@
   }
 
   // ---- Tero flow-conductivity solver on a braided maze ----
+  // Faithful Tero maze solver (after robert-30/physarum-maze): each MAZE CELL is a graph
+  // node, exact-ish pressure solve each iteration, superlinear D += delta*(|Q|^mu - D).
   function seedPhysFlow(){
-    physWalls = true; state.fill(0); food = [];
-    var B = 4, reg = Math.max(40, Math.round(Math.min(visSpan, visSpan*rows/cols)*0.98));
-    var gN = ((reg/B)|0)|1; if (gN<9) gN=9; var mc=(gN-1)/2, span=gN*B;
-    var x0=(cols-span)>>1, y0=(rows-span)>>1;
-    var Gopen=new Uint8Array(gN*gN); function gi(x,y){ return y*gN+x; }
-    var visited=new Uint8Array(mc*mc), st=new Int32Array(mc*mc), sp=0, mdx=[1,-1,0,0], mdy=[0,0,1,-1];
-    st[sp++]=0; visited[0]=1; Gopen[gi(1,1)]=1;
+    physWalls = true; food = [];
+    var reg = Math.max(60, Math.round(Math.min(visSpan, visSpan*rows/cols)*0.98));
+    var mc = cols>480 ? 18 : 12, B = Math.max(3, (reg/(2*mc+1))|0);
+    flowBW = B; var span=(2*mc+1)*B, x0=(cols-span)>>1, y0=(rows-span)>>1;
+    // recursive-backtracker adjacency between the mc x mc cells, then braid for loops
+    var vis=new Uint8Array(mc*mc), adjR=new Uint8Array(mc*mc), adjD=new Uint8Array(mc*mc);
+    var st=new Int32Array(mc*mc), sp=0, mdx=[1,-1,0,0], mdy=[0,0,1,-1];
+    st[sp++]=0; vis[0]=1;
     while (sp>0){ var cur=st[sp-1], ci=cur%mc, cj=(cur/mc)|0, opts=[];
-      for (var d=0;d<4;d++){ var ni=ci+mdx[d], nj=cj+mdy[d]; if (ni>=0&&nj>=0&&ni<mc&&nj<mc && !visited[nj*mc+ni]) opts.push(d); }
+      for (var d=0;d<4;d++){ var ni=ci+mdx[d], nj=cj+mdy[d]; if (ni>=0&&nj>=0&&ni<mc&&nj<mc && !vis[nj*mc+ni]) opts.push(d); }
       if (!opts.length){ sp--; continue; }
-      var dd=opts[(Math.random()*opts.length)|0], ai=ci+mdx[dd], aj=cj+mdy[dd];
-      visited[aj*mc+ai]=1; Gopen[gi(2*ai+1,2*aj+1)]=1; Gopen[gi(ci+ai+1,cj+aj+1)]=1; st[sp++]=aj*mc+ai;
-    }
-    // braid: knock down interior walls to add loops (competing routes)
-    for (var by2=1;by2<gN-1;by2++) for (var bx2=1;bx2<gN-1;bx2++){ if (Gopen[gi(bx2,by2)]) continue; if ((((bx2&1)^(by2&1))===1) && Math.random()<0.30) Gopen[gi(bx2,by2)]=1; }
-    for (var gy=0;gy<gN;gy++) for (var gx=0;gx<gN;gx++){ if (Gopen[gi(gx,gy)]) continue;
-      for (var wby=0;wby<B;wby++) for (var wbx=0;wbx<B;wbx++){ var wx=x0+gx*B+wbx, wy=y0+gy*B+wby; if (wx>=0&&wy>=0&&wx<cols&&wy<rows) state[idx(wx,wy)]=1; } }
-    // nodes = open cells inside the region
-    if (!flowNode || flowNode.length!==cols*rows) flowNode=new Int32Array(cols*rows);
-    flowNode.fill(-1);
-    var nodes=[];
-    for (var yy=y0;yy<y0+span;yy++) for (var xx=x0;xx<x0+span;xx++){ if (xx<0||yy<0||xx>=cols||yy>=rows) continue; var cc=yy*cols+xx; if (state[cc]===0){ flowNode[cc]=nodes.length; nodes.push(cc); } }
-    flowN=nodes.length; flowCell=Int32Array.from(nodes);
-    var ax=x0+B+(B>>1), ay=y0+B+(B>>1), bx=x0+(gN-2)*B+(B>>1), by=y0+(gN-2)*B+(B>>1);
-    flowA=flowNode[ay*cols+ax]; flowB=flowNode[by*cols+bx];
-    // edges (right & down between open cells)
+      var dd=opts[(Math.random()*opts.length)|0], ai=ci+mdx[dd], aj=cj+mdy[dd]; vis[aj*mc+ai]=1;
+      if (dd===0) adjR[cj*mc+ci]=1; else if (dd===1) adjR[aj*mc+ai]=1; else if (dd===2) adjD[cj*mc+ci]=1; else adjD[aj*mc+ai]=1;
+      st[sp++]=aj*mc+ai; }
+    for (var jj=0;jj<mc;jj++) for (var ii=0;ii<mc;ii++){ if (ii<mc-1 && !adjR[jj*mc+ii] && Math.random()<0.16) adjR[jj*mc+ii]=1; if (jj<mc-1 && !adjD[jj*mc+ii] && Math.random()<0.16) adjD[jj*mc+ii]=1; }
+    // nodes = cells; store each node's centre world-cell for rendering
+    flowN=mc*mc; flowCell=new Int32Array(flowN);
+    for (var j2=0;j2<mc;j2++) for (var i2=0;i2<mc;i2++){ var wx=x0+(2*i2+1)*B+(B>>1), wy=y0+(2*j2+1)*B+(B>>1); flowCell[j2*mc+i2]=wy*cols+wx; }
     var eu=[], ev=[];
-    for (var n=0;n<flowN;n++){ var c2=flowCell[n], x=c2%cols, y=(c2/cols)|0;
-      if (x+1<cols && flowNode[c2+1]>=0){ eu.push(n); ev.push(flowNode[c2+1]); }
-      if (y+1<rows && flowNode[c2+cols]>=0){ eu.push(n); ev.push(flowNode[c2+cols]); } }
-    flowEN=eu.length; edgeU=Int32Array.from(eu); edgeV=Int32Array.from(ev); edgeD=new Float32Array(flowEN); edgeD.fill(0.4);
-    // CSR adjacency
-    var deg=new Int32Array(flowN);
-    for (var e=0;e<flowEN;e++){ deg[edgeU[e]]++; deg[edgeV[e]]++; }
-    flowAdjStart=new Int32Array(flowN+1);
-    for (var q=0;q<flowN;q++) flowAdjStart[q+1]=flowAdjStart[q]+deg[q];
+    for (var j3=0;j3<mc;j3++) for (var i3=0;i3<mc;i3++){ var n=j3*mc+i3; if (i3<mc-1 && adjR[n]){ eu.push(n); ev.push(n+1); } if (j3<mc-1 && adjD[n]){ eu.push(n); ev.push(n+mc); } }
+    flowEN=eu.length; edgeU=Int32Array.from(eu); edgeV=Int32Array.from(ev);
+    edgeD=new Float32Array(flowEN); for (var e=0;e<flowEN;e++) edgeD[e]=0.5+Math.random()*0.5;   // start FULL (0.5-1), like their code
+    var deg=new Int32Array(flowN); for (var e2=0;e2<flowEN;e2++){ deg[edgeU[e2]]++; deg[edgeV[e2]]++; }
+    flowAdjStart=new Int32Array(flowN+1); for (var q=0;q<flowN;q++) flowAdjStart[q+1]=flowAdjStart[q]+deg[q];
     flowAdjNode=new Int32Array(flowEN*2); flowAdjEdge=new Int32Array(flowEN*2);
-    var cur2=Int32Array.from(flowAdjStart);
-    for (var e2=0;e2<flowEN;e2++){ var a=edgeU[e2], b=edgeV[e2]; flowAdjNode[cur2[a]]=b; flowAdjEdge[cur2[a]]=e2; cur2[a]++; flowAdjNode[cur2[b]]=a; flowAdjEdge[cur2[b]]=e2; cur2[b]++; }
-    // pressure init: BFS-distance gradient from A (helps the relaxation converge)
-    flowP=new Float32Array(flowN);
-    var bq=new Int32Array(flowN), bh=0,bt=0, dist=new Int32Array(flowN); dist.fill(-1);
-    dist[flowA]=0; bq[bt++]=flowA;
-    while (bh<bt){ var nn=bq[bh++]; for (var k=flowAdjStart[nn];k<flowAdjStart[nn+1];k++){ var m=flowAdjNode[k]; if (dist[m]<0){ dist[m]=dist[nn]+1; bq[bt++]=m; } } }
-    var dB=dist[flowB]>0?dist[flowB]:1;
-    for (var n3=0;n3<flowN;n3++){ var dv=dist[n3]<0?dB:dist[n3]; flowP[n3]=1-Math.min(1,dv/dB); }
-    flowP[flowB]=0; flowMaxD=1; flowTube=flowN;
-    // living-slime particles that stream along the tubes, plus the glow buffer (u)
-    flowAgN=Math.min(5000, Math.max(1000, flowN>>1)); flowAgents=new Int32Array(flowAgN);
-    for (var pa=0;pa<flowAgN;pa++) flowAgents[pa]=(Math.random()*flowN)|0;
-    u.fill(0);
-    mazeBg.width=worldPxW; mazeBg.height=worldPxH; mazeBgCtx.clearRect(0,0,worldPxW,worldPxH); mazeBgCtx.fillStyle="#333a4e";
-    for (var ry=0;ry<rows;ry++) for (var rx=0;rx<cols;rx++){ if (state[idx(rx,ry)]===1) mazeBgCtx.fillRect(rx*cell,ry*cell,cell,cell); }
+    var cc2=Int32Array.from(flowAdjStart);
+    for (var e3=0;e3<flowEN;e3++){ var a=edgeU[e3], b=edgeV[e3]; flowAdjNode[cc2[a]]=b; flowAdjEdge[cc2[a]]=e3; cc2[a]++; flowAdjNode[cc2[b]]=a; flowAdjEdge[cc2[b]]=e3; cc2[b]++; }
+    flowA=0; flowB=mc*mc-1; flowP=new Float32Array(flowN); flowMaxD=1;
+    // background: draw the maze corridors so the labyrinth is visible under the tubes
+    mazeBg.width=worldPxW; mazeBg.height=worldPxH; mazeBgCtx.clearRect(0,0,worldPxW,worldPxH); mazeBgCtx.fillStyle="#1b1f2b";
+    function blk(gx,gy){ mazeBgCtx.fillRect((x0+gx*B)*cell,(y0+gy*B)*cell,B*cell,B*cell); }
+    for (var bj=0;bj<mc;bj++) for (var bi=0;bi<mc;bi++){ blk(2*bi+1,2*bj+1); if (bi<mc-1 && adjR[bj*mc+bi]) blk(2*bi+2,2*bj+1); if (bj<mc-1 && adjD[bj*mc+bi]) blk(2*bi+1,2*bj+2); }
+    food.push({ x:flowCell[flowA]%cols, y:(flowCell[flowA]/cols)|0 });
+    food.push({ x:flowCell[flowB]%cols, y:(flowCell[flowB]/cols)|0 });
     setDefaultView();
   }
   function stepPhysFlow(times){
-    var K=8, omega=1.8, rate=0.2, mu=0.35, Dmin=0.02, I0=1.0;
+    var I0=1.0, delta=0.20, muExp=1.8, Dmin=0.006, sweeps=Math.min(400, flowN*2), omega=1.75;
     for (var s=0;s<times;s++){
-      for (var sweep=0;sweep<K;sweep++){
-        for (var i=0;i<flowN;i++){ if (i===flowB) continue;   // sink pinned to 0
+      // solve node pressures ~exactly (converged SOR): current I0 in at source, sink pinned 0
+      for (var sw=0;sw<sweeps;sw++){
+        for (var i=0;i<flowN;i++){ if (i===flowB) continue;
           var num=0, den=0;
-          for (var k=flowAdjStart[i];k<flowAdjStart[i+1];k++){ var dEdge=edgeD[flowAdjEdge[k]]; num+=dEdge*flowP[flowAdjNode[k]]; den+=dEdge; }
+          for (var k=flowAdjStart[i];k<flowAdjStart[i+1];k++){ var dE=edgeD[flowAdjEdge[k]]; num+=dE*flowP[flowAdjNode[k]]; den+=dE; }
           if (den>1e-9){ var bi=(i===flowA)?I0:0; flowP[i]+=omega*(((num+bi)/den)-flowP[i]); }
         }
       }
       var mx=Dmin;
       for (var e=0;e<flowEN;e++){ var qf=edgeD[e]*(flowP[edgeU[e]]-flowP[edgeV[e]]); if (qf<0) qf=-qf;
-        var nd=edgeD[e]+rate*(qf-mu*edgeD[e]); if (nd<Dmin) nd=Dmin; edgeD[e]=nd; if (nd>mx) mx=nd; }
-      flowMaxD=mx;
-      // living slime: particles stream along the tubes (biased by conductivity), depositing glow
-      for (var pa=0;pa<flowAgN;pa++){
-        var n=flowAgents[pa], s0=flowAdjStart[n], s1=flowAdjStart[n+1], tot=0;
-        for (var k=s0;k<s1;k++) tot+=edgeD[flowAdjEdge[k]];
-        var pick=n;
-        if (tot>1e-9){ var target=Math.random()*tot, acc=0; for (var k2=s0;k2<s1;k2++){ acc+=edgeD[flowAdjEdge[k2]]; if (acc>=target){ pick=flowAdjNode[k2]; break; } } }
-        if (Math.random()<0.015) pick=flowA;   // respawn at the source → directional streaming
-        flowAgents[pa]=pick;
-        var cc=flowCell[pick]; var nv=u[cc]+1.6; u[cc]=nv>9?9:nv;
-      }
-      diffusePhys(0.9);   // organic diffuse + evaporate of the slime glow
-      steps++;
+        var nd=edgeD[e]+delta*(Math.pow(qf,muExp)-edgeD[e]); if (nd<Dmin) nd=Dmin; edgeD[e]=nd; if (nd>mx) mx=nd; }
+      flowMaxD=mx; steps++;
     }
   }
   function renderPhysFlow(){
     wctx.drawImage(mazeBg,0,0);
-    var pulse=0.80+0.20*Math.sin(steps*0.04), tube=0;   // shuttle-streaming rhythm
-    for (var i=0;i<flowN;i++){ var cc=flowCell[i], val=u[cc]; if (val>0.12){ var x=cc%cols, y=(cc/cols)|0; var li=(Math.min(1,(val/9)*pulse*1.25)*255)|0; wctx.fillStyle=PHYS_LUT[li]; wctx.fillRect(x*cell,y*cell,cell,cell); if (val>3) tube++; } }
+    var pulse=0.82+0.18*Math.sin(steps*0.09), maxW=flowBW*cell*0.92, tube=0;   // tube ∝ conductivity
+    wctx.globalCompositeOperation="lighter"; wctx.lineCap="round"; wctx.lineJoin="round";
+    for (var e=0;e<flowEN;e++){ var d=edgeD[e]/flowMaxD; if (d<0.04) continue;
+      var u0=flowCell[edgeU[e]], v0=flowCell[edgeV[e]];
+      var ax=(u0%cols)*cell+cell/2, ay=((u0/cols)|0)*cell+cell/2, bx=(v0%cols)*cell+cell/2, by=((v0/cols)|0)*cell+cell/2;
+      wctx.lineWidth=Math.max(cell*0.5, d*maxW); wctx.strokeStyle=PHYS_LUT[(Math.min(1,d*pulse*1.2)*255)|0];
+      wctx.beginPath(); wctx.moveTo(ax,ay); wctx.lineTo(bx,by); wctx.stroke();
+      if (d>0.45) tube++; }
+    wctx.globalCompositeOperation="source-over"; wctx.lineCap="butt";
     flowTube=tube; pop=tube;
     drawFoodNode(flowCell[flowA],"#34d399"); drawFoodNode(flowCell[flowB],"#ff3d81");
   }
