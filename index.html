@@ -217,6 +217,7 @@
           <button class="seed" data-wire="wire">Wire</button>
           <button class="seed" data-wire="or">OR gate</button>
           <button class="seed" data-wire="xor">XOR gate</button>
+          <button class="seed" data-wire="and">AND gate</button>
         </div>
         <span class="hint" id="wireHint">electrons flow along wires &middot; 1 or 2 neighbours fire a gate</span>
       </div>
@@ -912,7 +913,7 @@
   // ---- Act VIII: WIREWORLD — a 4-state cellular automaton that is a computer ----
   // 0 empty, 1 electron head, 2 electron tail, 3 conductor. head→tail, tail→conductor,
   // conductor→head iff exactly 1 or 2 of its 8 neighbours are heads. That's the whole ruleset.
-  var WW_W = 96, WW_H = 56, wwGrid, wwNext, wwPreset = "clock", wwT = 0;
+  var WW_W = 112, WW_H = 56, wwGrid, wwNext, wwPreset = "clock", wwT = 0;
   var WW_COND = "#5a4718", WW_TAIL = "#ff6a3d", WW_HEAD = "#8fe6ff";
   // '#'=wire, '@'=head, '~'=tail. Gate presets add input-injection cells / an output cell,
   // and an auto-cycling controller that walks A,B through 00→01→10→11 so you watch the truth table.
@@ -937,7 +938,44 @@
       " A######     #    ",
       "       ###### #    ",
       "              #    ",
-      "              #####O" ], period:30 }
+      "              #####O" ], period:30 },
+    // AND: the honest one. Wireworld's "fire on 1 or 2" rule can't threshold at >=2, so a naive AND
+    // is impossible — it must be built as (A OR B) - (A XOR B). No crossover needed: A and B are
+    // already brought together inside the XOR core, so the OR is tapped LOCALLY off both inputs
+    // (a DIODE on each input — the little bridge on the left — blocks the junction's backflow so the
+    // taps read cleanly), merged, and combined with the XOR at a final suppression junction F (right).
+    // one input → OR(1)+XOR(2) = 3 heads coincide → suppressed → 0 ; both → XOR=0, lone OR head → 1.
+    // Verified 00→0,01→0,10→0,11→1 in the sim.
+    and: { period:170, art:[
+      " #######  ######################################################################################          ",
+      " #     #  #                                                                                    #          ",
+      " #     #  #                                                                                    #          ",
+      " #     #  #                                                                                    #          ",
+      " #     #  #                                                                                    #   #######",
+      " #     #  #                                                                                    #   #     #",
+      " #     ####                                                                                    #   #     #",
+      " #                                                                                             #   #     #",
+      " #                                                                                             #   #     #",
+      " #                                                                                             #   #     #",
+      " #                                                                                             #  ###    #",
+      " #                                                                                             #  # #    #",
+      " #                                                                                             #   #     #",
+      " #            #####                                                                            #### #    #",
+      " #   B######### #  ################################################                                 #    #",
+      " #     #      ##                                                  #                                 #    #",
+      " #     #                                                          #                                 #    #",
+      " #     #                                                          #                                 #    #",
+      " #######                                                          #                                 O    #",
+      "       #                                                          #                                      #",
+      "       #                                                   ###### #                                      #",
+      "       #      #####                                        #    # #                                      #",
+      "     A######### #  #####  ##################################     #                                       #",
+      "              ##       #  #                                #    # #                                      #",
+      "                       #  #                                ###### #                                      #",
+      "                       #  #                                       #                                      #",
+      "                       #  #                                       ########################################",
+      "                       #  #                                                                               ",
+      "                       ####                                                                               " ] }
   };
   var wwGate=null, wwCase=0, wwOutSeen=false, wwResults=[-1,-1,-1,-1], wwInA=null, wwInB=null, wwOut=null;
   function parseWWinto(art, ox, oy){
