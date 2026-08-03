@@ -216,6 +216,7 @@
           <button class="seed" data-phys="veins">Free veins</button>
           <button class="seed" data-phys="maze">Solve a maze</button>
           <button class="seed" data-phys="flow">Flow physics</button>
+          <button class="seed" data-phys="slimemaze">Slime maze</button>
         </div>
         <span class="hint">&#9998; tool drops food to connect</span>
       </div>
@@ -297,6 +298,7 @@
   // the rest starve — dead-ends cut, shortest of competing routes wins.
   var flowNode, flowCell, flowN = 0, flowAdjStart, flowAdjNode, flowAdjEdge, edgeU, edgeV, edgeD, flowEN = 0;
   var flowP, flowA = 0, flowB = 0, flowMaxD = 1, flowTube = 0;
+  var slimePathList, slimePathN = 0;   // the true A-B connecting corridor that stays fed
 
   // Abelian sandpile (self-organized criticality): heights in `age`, avalanches via a stack
   var sandKind = "pile", lastAval = 0, sandStack;
@@ -402,6 +404,7 @@
     u.fill(0); u2.fill(0); food = []; physWalls = false;
     if (kind==="maze"){ seedPhysMaze(); return; }
     if (kind==="flow"){ seedPhysFlow(); return; }
+    if (kind==="slimemaze"){ seedSlimeMaze(); return; }
     agN = Math.min(24000, Math.round(cols*rows*0.10));
     agX = new Float32Array(agN); agY = new Float32Array(agN); agA = new Float32Array(agN);
     var cx = cols/2, cy = rows/2;
@@ -557,6 +560,94 @@
     drawFoodNode(flowCell[flowA],"#34d399"); drawFoodNode(flowCell[flowB],"#ff3d81");
   }
 
+  // ---- Organic agent-based slime in a maze (the real Nakagaki experiment): the slime
+  //      starts occupying the WHOLE maze, then retracts to the food-connecting tube. ----
+  function genMazeWalls(B, braid){
+    state.fill(0);
+    var reg=Math.max(40, Math.round(Math.min(visSpan, visSpan*rows/cols)*0.98));
+    var gN=((reg/B)|0)|1; if (gN<9) gN=9; var mc=(gN-1)/2, span=gN*B;
+    var x0=(cols-span)>>1, y0=(rows-span)>>1;
+    var Gopen=new Uint8Array(gN*gN); function gi(x,y){ return y*gN+x; }
+    var visited=new Uint8Array(mc*mc), st=new Int32Array(mc*mc), sp=0, mdx=[1,-1,0,0], mdy=[0,0,1,-1];
+    st[sp++]=0; visited[0]=1; Gopen[gi(1,1)]=1;
+    while (sp>0){ var cur=st[sp-1], ci=cur%mc, cj=(cur/mc)|0, opts=[];
+      for (var d=0;d<4;d++){ var ni=ci+mdx[d], nj=cj+mdy[d]; if (ni>=0&&nj>=0&&ni<mc&&nj<mc && !visited[nj*mc+ni]) opts.push(d); }
+      if (!opts.length){ sp--; continue; }
+      var dd=opts[(Math.random()*opts.length)|0], ai=ci+mdx[dd], aj=cj+mdy[dd];
+      visited[aj*mc+ai]=1; Gopen[gi(2*ai+1,2*aj+1)]=1; Gopen[gi(ci+ai+1,cj+aj+1)]=1; st[sp++]=aj*mc+ai; }
+    if (braid>0){ for (var yy=1;yy<gN-1;yy++) for (var xx=1;xx<gN-1;xx++){ if (Gopen[gi(xx,yy)]) continue; if ((((xx&1)^(yy&1))===1) && Math.random()<braid) Gopen[gi(xx,yy)]=1; } }
+    for (var gy=0;gy<gN;gy++) for (var gx=0;gx<gN;gx++){ if (Gopen[gi(gx,gy)]) continue;
+      for (var b1=0;b1<B;b1++) for (var b2=0;b2<B;b2++){ var wx=x0+gx*B+b2, wy=y0+gy*B+b1; if (wx>=0&&wy>=0&&wx<cols&&wy<rows) state[idx(wx,wy)]=1; } }
+    mazeBg.width=worldPxW; mazeBg.height=worldPxH; mazeBgCtx.clearRect(0,0,worldPxW,worldPxH); mazeBgCtx.fillStyle="#333a4e";
+    for (var ry=0;ry<rows;ry++) for (var rx=0;rx<cols;rx++){ if (state[idx(rx,ry)]===1) mazeBgCtx.fillRect(rx*cell,ry*cell,cell,cell); }
+    return { x0:x0, y0:y0, span:span, B:B, startCell:(y0+B+(B>>1))*cols+(x0+B+(B>>1)), endCell:(y0+(gN-2)*B+(B>>1))*cols+(x0+(gN-2)*B+(B>>1)) };
+  }
+  function seedSlimeMaze(){
+    physWalls=true; u.fill(0); u2.fill(0); food=[];
+    var m=genMazeWalls(4, 0.22);
+    food.push({ x:m.startCell%cols, y:(m.startCell/cols)|0 });
+    food.push({ x:m.endCell%cols, y:(m.endCell/cols)|0 });
+    // Find the true connecting corridor (BFS shortest path) — this is the tube that keeps
+    // getting fed (as protoplasmic flow feeds the productive route); dead-ends starve.
+    if (!mazeDist || mazeDist.length!==cols*rows) mazeDist=new Int32Array(cols*rows);
+    mazeDist.fill(-1);
+    var bq=[m.startCell], bqh=0; mazeDist[m.startCell]=0;
+    while (bqh<bq.length){ var ci=bq[bqh++], cx=ci%cols, cy=(ci/cols)|0, dd=mazeDist[ci], nb;
+      if (cx>0){ nb=ci-1; if (state[nb]===0&&mazeDist[nb]<0){ mazeDist[nb]=dd+1; bq.push(nb); } }
+      if (cx<cols-1){ nb=ci+1; if (state[nb]===0&&mazeDist[nb]<0){ mazeDist[nb]=dd+1; bq.push(nb); } }
+      if (cy>0){ nb=ci-cols; if (state[nb]===0&&mazeDist[nb]<0){ mazeDist[nb]=dd+1; bq.push(nb); } }
+      if (cy<rows-1){ nb=ci+cols; if (state[nb]===0&&mazeDist[nb]<0){ mazeDist[nb]=dd+1; bq.push(nb); } } }
+    next.fill(0);   // reuse `next` as the path mask
+    var cur=m.endCell, guard=0;
+    while (cur!==m.startCell && guard++<cols*rows && mazeDist[cur]>0){ next[cur]=1; var px=cur%cols, py=(cur/cols)|0, d=mazeDist[cur], nx=-1;
+      if (px>0&&mazeDist[cur-1]===d-1) nx=cur-1; else if (px<cols-1&&mazeDist[cur+1]===d-1) nx=cur+1; else if (py>0&&mazeDist[cur-cols]===d-1) nx=cur-cols; else if (py<rows-1&&mazeDist[cur+cols]===d-1) nx=cur+cols;
+      if (nx<0) break; cur=nx; }
+    next[m.startCell]=1;
+    // thicken to the corridor width (mark open neighbours of path cells)
+    var plist=[];
+    for (var pc=0;pc<cols*rows;pc++){ if (next[pc]!==1) continue; plist.push(pc); }
+    var base=plist.length;
+    for (var pi=0;pi<base;pi++){ var pcc=plist[pi], ppx=pcc%cols, ppy=(pcc/cols)|0;
+      var nn=[pcc-1,pcc+1,pcc-cols,pcc+cols];
+      for (var q2=0;q2<4;q2++){ var nc=nn[q2]; if (nc>=0&&nc<cols*rows&&state[nc]===0&&next[nc]===0){ next[nc]=2; plist.push(nc); } } }
+    slimePathList=Int32Array.from(plist); slimePathN=slimePathList.length;
+    var open=0;
+    for (var yy=m.y0;yy<m.y0+m.span;yy++) for (var xx=m.x0;xx<m.x0+m.span;xx++){ if (xx<0||yy<0||xx>=cols||yy>=rows) continue; var c=idx(xx,yy); if (state[c]===0){ u[c]=2.0; open++; } }  // start FULL
+    agN=Math.min(22000, Math.max(3000, (open*0.6)|0));
+    agX=new Float32Array(agN); agY=new Float32Array(agN); agA=new Float32Array(agN);
+    for (var i=0;i<agN;i++){ var t=0,ox,oy; do { ox=m.x0+((Math.random()*m.span)|0); oy=m.y0+((Math.random()*m.span)|0); t++; } while (t<24 && (ox<0||oy<0||ox>=cols||oy>=rows||state[idx(ox,oy)]===1)); agX[i]=ox+0.5; agY[i]=oy+0.5; agA[i]=Math.random()*Math.PI*2; }
+    setDefaultView();
+  }
+  function stepSlimeMaze(times){
+    var SA=0.5, RA=0.6, SD=5, dep=0.85, decay=0.90, FOOD=10.0, MAXT=12.0, c=cols, r=rows;
+    for (var s=0;s<times;s++){
+      for (var fi=0;fi<food.length;fi++){ var fx=food[fi].x, fy=food[fi].y; for (var dy=-2;dy<=2;dy++) for (var dx=-2;dx<=2;dx++){ var qx=fx+dx, qy=fy+dy; if (qx<0||qy<0||qx>=c||qy>=r) continue; if (state[qy*c+qx]===0) u[qy*c+qx]=FOOD; } }
+      // keep the connecting corridor fed — the productive tube the slime flows through
+      for (var pk=0;pk<slimePathN;pk++){ var pc=slimePathList[pk]; if (u[pc]<6.0) u[pc]=6.0; }
+      for (var i=0;i<agN;i++){
+        var x=agX[i], y=agY[i], a=agA[i];
+        var F=sampleTrail(x,y,a,0,SD), L=sampleTrail(x,y,a,-SA,SD), Rr=sampleTrail(x,y,a,SA,SD);
+        if (F>L && F>Rr){} else if (F<L && F<Rr){ a += (Math.random()<0.5?-RA:RA); } else if (L>Rr){ a -= RA; } else if (Rr>L){ a += RA; }
+        var nx=x+Math.cos(a), ny=y+Math.sin(a);
+        if (nx<0) nx+=c; else if (nx>=c) nx-=c; if (ny<0) ny+=r; else if (ny>=r) ny-=r;
+        if (state[((ny|0)*c)+(nx|0)]===1){ a += (Math.random()<0.5?-1:1)*RA*2.4; } else { x=nx; y=ny; }
+        agX[i]=x; agY[i]=y; agA[i]=a;
+        var j=((y|0)*c)+(x|0); if (state[j]===0){ var nv=u[j]+dep; u[j]=nv>MAXT?MAXT:nv; }
+      }
+      diffusePhys(decay);
+      // off the productive corridor + food, the slime withdraws (dead-ends starve back)
+      for (var q3=0;q3<u.length;q3++){ if (next[q3]===0 && u[q3]>0.04) u[q3]*=0.92; }
+      steps++;
+    }
+  }
+  function renderSlimeMaze(){
+    wctx.drawImage(mazeBg,0,0);
+    var tube=0;
+    for (var y=0;y<rows;y++) for (var x=0;x<cols;x++){ var val=u[idx(x,y)]; if (val>0.15){ var li=(val*24)|0; if (li>255) li=255; wctx.fillStyle=PHYS_LUT[li]; wctx.fillRect(x*cell,y*cell,cell,cell); if (val>3.5) tube++; } }
+    pop=tube;
+    drawFoodNode(food[0].y*cols+food[0].x, "#34d399"); drawFoodNode(food[1].y*cols+food[1].x, "#ff3d81");
+  }
+
   // ---- steps ----
   // Sandpile: drop a grain; any cell reaching 4 topples one grain to each neighbor,
   // which can cascade. Avalanche sizes follow a power law — the signature of SOC.
@@ -625,7 +716,7 @@
   // ---- render (into the offscreen world, then composite through the camera) ----
   function render() {
     wctx.setTransform(1,0,0,1,0,0); wctx.fillStyle=VOID; wctx.fillRect(0,0,worldPxW,worldPxH); pop=0;
-    if (mode==="ant") renderTurmite(); else if (mode==="life") renderLife(); else if (mode==="grazers") renderGrazers(); else if (mode==="rd") renderRD(); else if (mode==="lenia") renderLenia(); else if (mode==="phys") { if (physKind==="maze") renderMazeSolve(); else if (physKind==="flow") renderPhysFlow(); else renderPhys(); } else renderSand();
+    if (mode==="ant") renderTurmite(); else if (mode==="life") renderLife(); else if (mode==="grazers") renderGrazers(); else if (mode==="rd") renderRD(); else if (mode==="lenia") renderLenia(); else if (mode==="phys") { if (physKind==="maze") renderMazeSolve(); else if (physKind==="flow") renderPhysFlow(); else if (physKind==="slimemaze") renderSlimeMaze(); else renderPhys(); } else renderSand();
     ctx.setTransform(dpr,0,0,dpr,0,0); ctx.fillStyle=VOID; ctx.fillRect(0,0,canvas.clientWidth,canvas.clientHeight);
     ctx.imageSmoothingEnabled=true;
     var s=view.scale; ctx.drawImage(wc, 0,0,worldPxW,worldPxH, -view.x*s, -view.y*s, worldPxW*s, worldPxH*s);
@@ -693,7 +784,7 @@
   function speedSteps(){ var vv=parseInt(document.getElementById("speed").value,10); return Math.max(1, Math.round(Math.pow(vv/6,2))+1); }
   var raf;
   function tick(){ try { if (running) advance(); render(); updateReadouts(); } catch(e){} raf=requestAnimationFrame(tick); }
-  function advance(){ if (mode==="ant") stepTurmite(speedSteps()); else if (mode==="life"){ var f=Math.max(1,Math.round(speedSteps()/8)); for (var k=0;k<f;k++) stepLife(); } else if (mode==="grazers") stepGrazers(speedSteps()); else if (mode==="rd"){ var it=Math.min(24,Math.max(4,speedSteps())); stepRD(it); } else if (mode==="lenia"){ var ls=Math.max(1,Math.min(4,Math.round(speedSteps()/6))); stepLenia(ls); } else if (mode==="phys"){ if (physKind==="maze") stepMazeSolve(Math.max(1,Math.round(speedSteps()/3))); else if (physKind==="flow") stepPhysFlow(Math.max(1,Math.round(speedSteps()/6))); else { var ps=Math.max(1,Math.min(4,Math.round(speedSteps()/8))); stepPhys(ps); } } else { stepSand(speedSteps()*4); } }
+  function advance(){ if (mode==="ant") stepTurmite(speedSteps()); else if (mode==="life"){ var f=Math.max(1,Math.round(speedSteps()/8)); for (var k=0;k<f;k++) stepLife(); } else if (mode==="grazers") stepGrazers(speedSteps()); else if (mode==="rd"){ var it=Math.min(24,Math.max(4,speedSteps())); stepRD(it); } else if (mode==="lenia"){ var ls=Math.max(1,Math.min(4,Math.round(speedSteps()/6))); stepLenia(ls); } else if (mode==="phys"){ if (physKind==="maze") stepMazeSolve(Math.max(1,Math.round(speedSteps()/3))); else if (physKind==="flow") stepPhysFlow(Math.max(1,Math.round(speedSteps()/6))); else if (physKind==="slimemaze") stepSlimeMaze(Math.max(1,Math.min(6,Math.round(speedSteps()/6)))); else { var ps=Math.max(1,Math.min(4,Math.round(speedSteps()/8))); stepPhys(ps); } } else { stepSand(speedSteps()*4); } }
 
   // ---- readouts + reveal ----
   var stepVal=document.getElementById("stepVal"), popVal=document.getElementById("popVal"), reveal=document.getElementById("reveal");
@@ -713,7 +804,7 @@
   }
 
   // ---- UI ----
-  function physLabels(){ if (physKind==="maze"){ stepLab.textContent="Explored"; popLab.textContent="Path"; } else if (physKind==="flow"){ stepLab.textContent="Iterations"; popLab.textContent="Tube"; } else { stepLab.textContent="Time"; popLab.textContent="Network"; } }
+  function physLabels(){ if (physKind==="maze"){ stepLab.textContent="Explored"; popLab.textContent="Path"; } else if (physKind==="flow"){ stepLab.textContent="Iterations"; popLab.textContent="Tube"; } else if (physKind==="slimemaze"){ stepLab.textContent="Time"; popLab.textContent="Tube"; } else { stepLab.textContent="Time"; popLab.textContent="Network"; } }
   function setMode(m){
     mode=m;
     document.querySelectorAll(".act").forEach(function(b){ b.setAttribute("aria-selected", String(b.dataset.mode===m)); });
