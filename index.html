@@ -59,8 +59,8 @@
   .camctl button:focus-visible { outline: 2px solid var(--glow); outline-offset: 2px; }
 
   .hud { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); width: min(1160px, calc(100vw - 32px)); background: var(--panel); backdrop-filter: blur(18px) saturate(1.3); -webkit-backdrop-filter: blur(18px) saturate(1.3); border: 1px solid var(--hair); border-radius: 16px; box-shadow: 0 24px 60px -20px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04); z-index: 5; overflow: hidden; }
-  .acts { display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid var(--hair); }
-  .act { appearance: none; background: transparent; border: 0; border-right: 1px solid var(--hair); color: var(--muted); padding: 10px 9px; text-align: left; cursor: pointer; transition: background 0.18s, color 0.18s; font-family: var(--font-display); }
+  .acts { display: grid; grid-template-columns: repeat(8, 1fr); border-bottom: 1px solid var(--hair); }
+  .act { appearance: none; background: transparent; border: 0; border-right: 1px solid var(--hair); color: var(--muted); padding: 10px 8px; text-align: left; cursor: pointer; transition: background 0.18s, color 0.18s; font-family: var(--font-display); }
   .act:last-child { border-right: 0; }
   .act:hover { background: rgba(255,255,255,0.03); color: var(--ink); }
   .act[aria-selected="true"] { background: rgba(34, 211, 238, 0.06); color: var(--ink); }
@@ -156,6 +156,7 @@
       <button class="act" role="tab" data-mode="lenia" aria-selected="false"><span class="num">ACT V</span><span class="nm">The Creatures</span><span class="dsc">Lenia — life that swims</span></button>
       <button class="act" role="tab" data-mode="phys" aria-selected="false"><span class="num">ACT VI</span><span class="nm">The Slime Mold</span><span class="dsc">Physarum — a brainless solver</span></button>
       <button class="act" role="tab" data-mode="sand" aria-selected="false"><span class="num">ACT VII</span><span class="nm">The Sandpile</span><span class="dsc">Avalanches like earthquakes</span></button>
+      <button class="act" role="tab" data-mode="wire" aria-selected="false"><span class="num">ACT VIII</span><span class="nm">Logic Gates</span><span class="dsc">Wireworld — a CA computer</span></button>
     </div>
 
     <div class="controls">
@@ -208,6 +209,15 @@
       <div class="mode-controls" data-for="lenia">
         <div class="field" id="leniaSeeds"><button class="seed" data-lenia="primordial" aria-pressed="true">Primordial soup</button><button class="seed" data-lenia="blooms">Scattered blooms</button></div>
         <span class="hint">&#9998; tool breathes life into the void</span>
+      </div>
+
+      <div class="mode-controls" data-for="wire">
+        <div class="field" id="wireSeeds">
+          <button class="seed" data-wire="clock" aria-pressed="true">Clock</button>
+          <button class="seed" data-wire="wire">Wire</button>
+          <button class="seed" data-wire="or">OR gate</button>
+        </div>
+        <span class="hint" id="wireHint">electrons flow along wires &middot; 1 or 2 neighbours fire a gate</span>
       </div>
 
       <div class="mode-controls" data-for="phys">
@@ -381,7 +391,7 @@
 
   function reset() {
     state.fill(0); next.fill(0); age.fill(0); heat.fill(0); steps=0; pop=0; lifeFrameCounter=0; revealFired=false; ants=[]; mazeAccum=0;
-    if (mode==="ant") seedAnts(); else if (mode==="life") seedLife(lifeSeed); else if (mode==="grazers") seedGrazers(); else if (mode==="rd") seedRD(); else if (mode==="lenia") seedLenia(leniaSeedKind); else if (mode==="phys") seedPhys(physKind); else if (mode==="sand") seedSand();
+    if (mode==="ant") seedAnts(); else if (mode==="life") seedLife(lifeSeed); else if (mode==="grazers") seedGrazers(); else if (mode==="rd") seedRD(); else if (mode==="lenia") seedLenia(leniaSeedKind); else if (mode==="phys") seedPhys(physKind); else if (mode==="sand") seedSand(); else if (mode==="wire") seedWW();
     hideBigReveal(); updateReveal();
   }
 
@@ -834,7 +844,7 @@
   // ---- render (into the offscreen world, then composite through the camera) ----
   function render() {
     wctx.setTransform(1,0,0,1,0,0); wctx.fillStyle=VOID; wctx.fillRect(0,0,worldPxW,worldPxH); pop=0;
-    if (mode==="ant") renderTurmite(); else if (mode==="life") renderLife(); else if (mode==="grazers") renderGrazers(); else if (mode==="rd") renderRD(); else if (mode==="lenia") renderLenia(); else if (mode==="phys") { if (physKind==="maze") renderMazeSolve(); else if (physKind==="flow") renderPhysFlow(); else if (physKind==="smart") renderSmart(); else if (physKind==="tremaux") renderTremaux(); else if (physKind==="slimemaze") renderSlimeMaze(); else renderPhys(); } else renderSand();
+    if (mode==="ant") renderTurmite(); else if (mode==="life") renderLife(); else if (mode==="grazers") renderGrazers(); else if (mode==="rd") renderRD(); else if (mode==="lenia") renderLenia(); else if (mode==="phys") { if (physKind==="maze") renderMazeSolve(); else if (physKind==="flow") renderPhysFlow(); else if (physKind==="smart") renderSmart(); else if (physKind==="tremaux") renderTremaux(); else if (physKind==="slimemaze") renderSlimeMaze(); else renderPhys(); } else if (mode==="sand") renderSand(); else renderWW();
     ctx.setTransform(dpr,0,0,dpr,0,0); ctx.fillStyle=VOID; ctx.fillRect(0,0,canvas.clientWidth,canvas.clientHeight);
     ctx.imageSmoothingEnabled=true;
     var s=view.scale; ctx.drawImage(wc, 0,0,worldPxW,worldPxH, -view.x*s, -view.y*s, worldPxW*s, worldPxH*s);
@@ -898,6 +908,73 @@
   function drawAnt(ant,color){ if (!ant) return; var px=ant.x*cell+cell/2, py=ant.y*cell+cell/2, rr=Math.max(cell*2.4,7); var g=wctx.createRadialGradient(px,py,0,px,py,rr); g.addColorStop(0,"rgba(255,255,255,0.95)"); g.addColorStop(0.35,hexA(color,0.6)); g.addColorStop(1,hexA(color,0)); wctx.globalCompositeOperation="lighter"; wctx.fillStyle=g; wctx.beginPath(); wctx.arc(px,py,rr,0,Math.PI*2); wctx.fill(); wctx.globalCompositeOperation="source-over"; wctx.fillStyle="#fff"; wctx.fillRect(ant.x*cell,ant.y*cell,cell,cell); }
   function hexA(hex,a){ return "rgba("+parseInt(hex.substr(1,2),16)+","+parseInt(hex.substr(3,2),16)+","+parseInt(hex.substr(5,2),16)+","+a+")"; }
 
+  // ---- Act VIII: WIREWORLD — a 4-state cellular automaton that is a computer ----
+  // 0 empty, 1 electron head, 2 electron tail, 3 conductor. head→tail, tail→conductor,
+  // conductor→head iff exactly 1 or 2 of its 8 neighbours are heads. That's the whole ruleset.
+  var WW_W = 96, WW_H = 56, wwGrid, wwNext, wwPreset = "clock", wwT = 0;
+  var WW_COND = "#5a4718", WW_TAIL = "#ff6a3d", WW_HEAD = "#8fe6ff";
+  // '#'=wire, '@'=head, '~'=tail. Gate presets add input-injection cells / an output cell,
+  // and an auto-cycling controller that walks A,B through 00→01→10→11 so you watch the truth table.
+  var WW_ART = {
+    clock: [ "#~@###########","#            #","#            #","#            #","##############" ],
+    wire:  [ "~@########################" ]
+  };
+  // Gate layouts. 'A'/'B' mark where an input electron is injected (moving right); 'O' the output cell.
+  var WW_GATES = {
+    or:  { art:[ "A######       ","      O###### ","B######       " ], period:22 },
+    xor: { art:[ "A#####@       ","      O###### ","      #       ","B#####@       " ], period:22 }
+  };
+  var wwGate=null, wwCase=0, wwOutSeen=false, wwResults=[-1,-1,-1,-1], wwInA=null, wwInB=null, wwOut=null;
+  function parseWWinto(art, ox, oy){
+    wwInA=wwInB=wwOut=null;
+    for (var r=0;r<art.length;r++){ var row=art[r]; for (var c=0;c<row.length;c++){ var ch=row.charAt(c), x=ox+c, y=oy+r; if (x<0||y<0||x>=WW_W||y>=WW_H) continue;
+      if (ch==="#"||ch==="@"||ch==="~"){ wwGrid[y*WW_W+x] = ch==="@"?1:ch==="~"?2:3; }
+      else if (ch==="A"){ wwGrid[y*WW_W+x]=3; wwInA=[x,y]; }
+      else if (ch==="B"){ wwGrid[y*WW_W+x]=3; wwInB=[x,y]; }
+      else if (ch==="O"){ wwGrid[y*WW_W+x]=3; wwOut=[x,y]; } } }
+  }
+  function wwInject(cell){ if (!cell) return; var x=cell[0], y=cell[1]; wwGrid[y*WW_W+x]=1; if (x>0) wwGrid[y*WW_W+x-1]=2; }   // head + tail-behind → moves right
+  function wwCycle(){
+    if (wwT>0) wwResults[wwCase]=wwOutSeen?1:0;
+    wwCase=(wwCase+1)&3; wwOutSeen=false;
+    for (var i=0;i<wwGrid.length;i++){ if (wwGrid[i]===1||wwGrid[i]===2) wwGrid[i]=3; }   // clean slate
+    if (wwCase&1) wwInject(wwInA); if (wwCase&2) wwInject(wwInB);
+  }
+  function seedWW(){
+    if (!wwGrid || wwGrid.length!==WW_W*WW_H){ wwGrid=new Uint8Array(WW_W*WW_H); wwNext=new Uint8Array(WW_W*WW_H); }
+    wwGrid.fill(0); wwT=0; wwCase=0; wwOutSeen=false; wwResults=[-1,-1,-1,-1]; wwGate=WW_GATES[wwPreset]||null;
+    var art=wwGate?wwGate.art:(WW_ART[wwPreset]||WW_ART.clock);
+    var ox=((WW_W-art[0].length)/2)|0, oy=((WW_H-art.length)/2)|0;
+    if (wwGate){ parseWWinto(art,ox,oy); wwInject(wwInA); }   // start at case 01 (A=1)
+    else { parseWWinto(art,ox,oy); }
+    if (typeof fitView==="function") fitView();
+  }
+  function stepWW(times){
+    var W=WW_W, H=WW_H;
+    for (var t=0;t<times;t++){
+      if (wwGate && wwT>0 && wwT%wwGate.period===0) wwCycle();
+      for (var y=0;y<H;y++){ for (var x=0;x<W;x++){ var i=y*W+x, s=wwGrid[i];
+        if (s===1) wwNext[i]=2; else if (s===2) wwNext[i]=3; else if (s===0) wwNext[i]=0;
+        else { var h=0;
+          for (var dy=-1;dy<=1;dy++){ var ny=y+dy; if (ny<0||ny>=H) continue; for (var dx=-1;dx<=1;dx++){ if (!dx&&!dy) continue; var nx=x+dx; if (nx<0||nx>=W) continue; if (wwGrid[ny*W+nx]===1) h++; } }
+          wwNext[i] = (h===1||h===2)?1:3;
+        } } }
+      var tmp=wwGrid; wwGrid=wwNext; wwNext=tmp; wwT++; steps++;
+      if (wwGate && wwOut && wwGrid[wwOut[1]*W+wwOut[0]]===1) wwOutSeen=true;
+    }
+  }
+  function renderWW(){
+    var cw=worldPxW/WW_W, ch=worldPxH/WW_H, cwc=Math.ceil(cw)+1, chc=Math.ceil(ch)+1, heads=0;
+    for (var y=0;y<WW_H;y++) for (var x=0;x<WW_W;x++){ var s=wwGrid[y*WW_W+x]; if (!s) continue;
+      wctx.fillStyle = s===3?WW_COND : s===2?WW_TAIL : WW_HEAD; if (s===1) heads++;
+      wctx.fillRect(x*cw, y*ch, cwc, chc); }
+    pop=heads;
+    if (wwGate){ wctx.fillStyle="#8fa0c8"; wctx.font=Math.round(ch*1.4)+"px "+"ui-monospace,monospace"; wctx.textBaseline="top";
+      var oy=(((WW_H-wwGate.art.length)/2)|0)*ch - ch*6, ox=(((WW_W-wwGate.art[0].length)/2)|0)*cw;
+      var names=["00→0","A B"], tt=""; for (var k=0;k<4;k++){ tt+=(k&2?1:0)+""+(k&1?1:0)+"→"+(wwResults[k]<0?"·":wwResults[k])+"   "; }
+      wctx.fillText(wwPreset.toUpperCase()+"  A B → out    "+tt, ox, oy>0?oy:ch*0.5); }
+  }
+
   // ---- loop ----
   function speedSteps(){ var vv=parseInt(document.getElementById("speed").value,10); return Math.max(1, Math.round(Math.pow(vv/6,2))+1); }
   var raf;
@@ -909,7 +986,8 @@
       else if (physKind==="tremaux"){ mazeAccum += parseInt(document.getElementById("speed").value,10)/55; var nt=mazeAccum|0; mazeAccum-=nt; if (nt>0) stepTremaux(nt); }
       else if (physKind==="slimemaze") stepSlimeMaze(Math.max(1,Math.min(6,Math.round(speedSteps()/6))));
       else { var ps=Math.max(1,Math.min(4,Math.round(speedSteps()/8))); stepPhys(ps); }
-    } else { stepSand(speedSteps()*4); } }
+    } else if (mode==="sand"){ stepSand(speedSteps()*4); }
+    else { mazeAccum += parseInt(document.getElementById("speed").value,10)/45; var nw=mazeAccum|0; mazeAccum-=nw; if (nw>0) stepWW(nw); } }
 
   // ---- readouts + reveal ----
   var stepVal=document.getElementById("stepVal"), popVal=document.getElementById("popVal"), reveal=document.getElementById("reveal");
@@ -940,8 +1018,9 @@
     else if (m==="rd"){ stepLab.textContent="Iterations"; popLab.textContent="Reagent"; }
     else if (m==="lenia"){ stepLab.textContent="Time"; popLab.textContent="Biomass"; }
     else if (m==="phys"){ physLabels(); }
-    else { stepLab.textContent="Grains"; popLab.textContent="Last avalanche"; }
-    genHint.textContent = m==="grazers"?"ants read life · life reshapes ants" : m==="rd"?"two chemicals · feed & kill" : m==="lenia"?"continuous life · a smooth Game of Life" : m==="phys"?"no brain · a chemical trail that thinks" : m==="sand"?"one rule · avalanches at every scale" : "";
+    else if (m==="sand"){ stepLab.textContent="Grains"; popLab.textContent="Last avalanche"; }
+    else { stepLab.textContent="Tick"; popLab.textContent="Electrons"; }
+    genHint.textContent = m==="grazers"?"ants read life · life reshapes ants" : m==="rd"?"two chemicals · feed & kill" : m==="lenia"?"continuous life · a smooth Game of Life" : m==="phys"?"no brain · a chemical trail that thinks" : m==="sand"?"one rule · avalanches at every scale" : m==="wire"?"four states · electrons compute" : "";
     reset();
   }
   document.querySelectorAll(".act").forEach(function(b){ b.addEventListener("click", function(){ setMode(b.dataset.mode); }); });
@@ -962,6 +1041,7 @@
   document.querySelectorAll("#plantMode .seed").forEach(function(s){ s.addEventListener("click", function(){ plantMode=s.dataset.plant; document.querySelectorAll("#plantMode .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); }); });
   document.querySelectorAll("#rdSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ rdKind=s.dataset.rd; document.querySelectorAll("#rdSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); reset(); }); });
   document.querySelectorAll("#leniaSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ leniaSeedKind=s.dataset.lenia; document.querySelectorAll("#leniaSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); reset(); }); });
+  document.querySelectorAll("#wireSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ wwPreset=s.dataset.wire; document.querySelectorAll("#wireSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); reset(); }); });
   document.querySelectorAll("#physSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ physKind=s.dataset.phys; document.querySelectorAll("#physSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); physLabels(); reset(); }); });
   document.querySelectorAll("#sandSeeds .seed").forEach(function(s){ s.addEventListener("click", function(){ sandKind=s.dataset.sand; document.querySelectorAll("#sandSeeds .seed").forEach(function(o){ o.setAttribute("aria-pressed", String(o===s)); }); reset(); }); });
 
@@ -992,7 +1072,7 @@
   window.addEventListener("keydown", function(e){
     if (e.target.tagName==="INPUT") return;
     if (e.code==="Space"){ e.preventDefault(); playBtn.click(); }
-    else if (e.key==="1") setMode("ant"); else if (e.key==="2") setMode("life"); else if (e.key==="3") setMode("grazers"); else if (e.key==="4") setMode("rd"); else if (e.key==="5") setMode("lenia"); else if (e.key==="6") setMode("phys"); else if (e.key==="7") setMode("sand");
+    else if (e.key==="1") setMode("ant"); else if (e.key==="2") setMode("life"); else if (e.key==="3") setMode("grazers"); else if (e.key==="4") setMode("rd"); else if (e.key==="5") setMode("lenia"); else if (e.key==="6") setMode("phys"); else if (e.key==="7") setMode("sand"); else if (e.key==="8") setMode("wire");
     else if (e.key==="f"||e.key==="F") fitView();
     else if (e.key==="+"||e.key==="=") zoomAt(canvas.clientWidth/2, canvas.clientHeight/2, 1.3);
     else if (e.key==="-"||e.key==="_") zoomAt(canvas.clientWidth/2, canvas.clientHeight/2, 1/1.3);
