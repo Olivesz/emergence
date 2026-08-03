@@ -298,6 +298,7 @@
   // the rest starve — dead-ends cut, shortest of competing routes wins.
   var flowNode, flowCell, flowN = 0, flowAdjStart, flowAdjNode, flowAdjEdge, edgeU, edgeV, edgeD, flowEN = 0;
   var flowP, flowA = 0, flowB = 0, flowMaxD = 1, flowTube = 0;
+  var flowAgents, flowAgN = 0;         // particles that stream along the tubes = the living slime
   var slimePathList, slimePathN = 0;   // the true A-B connecting corridor that stays fed
 
   // Abelian sandpile (self-organized criticality): heights in `age`, avalanches via a stack
@@ -531,6 +532,10 @@
     var dB=dist[flowB]>0?dist[flowB]:1;
     for (var n3=0;n3<flowN;n3++){ var dv=dist[n3]<0?dB:dist[n3]; flowP[n3]=1-Math.min(1,dv/dB); }
     flowP[flowB]=0; flowMaxD=1; flowTube=flowN;
+    // living-slime particles that stream along the tubes, plus the glow buffer (u)
+    flowAgN=Math.min(5000, Math.max(1000, flowN>>1)); flowAgents=new Int32Array(flowAgN);
+    for (var pa=0;pa<flowAgN;pa++) flowAgents[pa]=(Math.random()*flowN)|0;
+    u.fill(0);
     mazeBg.width=worldPxW; mazeBg.height=worldPxH; mazeBgCtx.clearRect(0,0,worldPxW,worldPxH); mazeBgCtx.fillStyle="#333a4e";
     for (var ry=0;ry<rows;ry++) for (var rx=0;rx<cols;rx++){ if (state[idx(rx,ry)]===1) mazeBgCtx.fillRect(rx*cell,ry*cell,cell,cell); }
     setDefaultView();
@@ -548,14 +553,25 @@
       var mx=Dmin;
       for (var e=0;e<flowEN;e++){ var qf=edgeD[e]*(flowP[edgeU[e]]-flowP[edgeV[e]]); if (qf<0) qf=-qf;
         var nd=edgeD[e]+rate*(qf-mu*edgeD[e]); if (nd<Dmin) nd=Dmin; edgeD[e]=nd; if (nd>mx) mx=nd; }
-      flowMaxD=mx; steps++;
+      flowMaxD=mx;
+      // living slime: particles stream along the tubes (biased by conductivity), depositing glow
+      for (var pa=0;pa<flowAgN;pa++){
+        var n=flowAgents[pa], s0=flowAdjStart[n], s1=flowAdjStart[n+1], tot=0;
+        for (var k=s0;k<s1;k++) tot+=edgeD[flowAdjEdge[k]];
+        var pick=n;
+        if (tot>1e-9){ var target=Math.random()*tot, acc=0; for (var k2=s0;k2<s1;k2++){ acc+=edgeD[flowAdjEdge[k2]]; if (acc>=target){ pick=flowAdjNode[k2]; break; } } }
+        if (Math.random()<0.015) pick=flowA;   // respawn at the source → directional streaming
+        flowAgents[pa]=pick;
+        var cc=flowCell[pick]; var nv=u[cc]+1.6; u[cc]=nv>9?9:nv;
+      }
+      diffusePhys(0.9);   // organic diffuse + evaporate of the slime glow
+      steps++;
     }
   }
   function renderPhysFlow(){
     wctx.drawImage(mazeBg,0,0);
-    var thr=flowMaxD*0.28, tube=0;
-    for (var i=0;i<flowN;i++){ var md=0; for (var k=flowAdjStart[i];k<flowAdjStart[i+1];k++){ var d=edgeD[flowAdjEdge[k]]; if (d>md) md=d; }
-      if (md>0.04){ var c2=flowCell[i], x=c2%cols, y=(c2/cols)|0, b=md/flowMaxD; var li=(Math.min(1,b*1.15)*255)|0; wctx.fillStyle=PHYS_LUT[li]; wctx.fillRect(x*cell,y*cell,cell,cell); if (md>thr) tube++; } }
+    var pulse=0.80+0.20*Math.sin(steps*0.04), tube=0;   // shuttle-streaming rhythm
+    for (var i=0;i<flowN;i++){ var cc=flowCell[i], val=u[cc]; if (val>0.12){ var x=cc%cols, y=(cc/cols)|0; var li=(Math.min(1,(val/9)*pulse*1.25)*255)|0; wctx.fillStyle=PHYS_LUT[li]; wctx.fillRect(x*cell,y*cell,cell,cell); if (val>3) tube++; } }
     flowTube=tube; pop=tube;
     drawFoodNode(flowCell[flowA],"#34d399"); drawFoodNode(flowCell[flowB],"#ff3d81");
   }
