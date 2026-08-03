@@ -302,6 +302,7 @@
   var flowBW = 4;                      // corridor width (world cells) — sets max tube thickness
   var occ, dead, flowFix, flowSink = false;  // foraging: reached cells / peeled dead-ends / goal found?
   var owner, gA, gB, parA, parB, openA, openB, smartMeet = false, smartPath, smartExplored = 0;  // bidirectional A*
+  var mazeAccum = 0;                    // fractional step accumulator — lets maze-solving run in slow-mo
   var slimePathList, slimePathN = 0;   // the true A-B connecting corridor that stays fed
 
   // Abelian sandpile (self-organized criticality): heights in `age`, avalanches via a stack
@@ -377,7 +378,7 @@
   }
 
   function reset() {
-    state.fill(0); next.fill(0); age.fill(0); heat.fill(0); steps=0; pop=0; lifeFrameCounter=0; revealFired=false; ants=[];
+    state.fill(0); next.fill(0); age.fill(0); heat.fill(0); steps=0; pop=0; lifeFrameCounter=0; revealFired=false; ants=[]; mazeAccum=0;
     if (mode==="ant") seedAnts(); else if (mode==="life") seedLife(lifeSeed); else if (mode==="grazers") seedGrazers(); else if (mode==="rd") seedRD(); else if (mode==="lenia") seedLenia(leniaSeedKind); else if (mode==="phys") seedPhys(physKind); else if (mode==="sand") seedSand();
     hideBigReveal(); updateReveal();
   }
@@ -512,7 +513,12 @@
     flowAdjNode=new Int32Array(flowEN*2); flowAdjEdge=new Int32Array(flowEN*2);
     var cc2=Int32Array.from(flowAdjStart);
     for (var e3=0;e3<flowEN;e3++){ var a=edgeU[e3], b=edgeV[e3]; flowAdjNode[cc2[a]]=b; flowAdjEdge[cc2[a]]=e3; cc2[a]++; flowAdjNode[cc2[b]]=a; flowAdjEdge[cc2[b]]=e3; cc2[b]++; }
-    flowA=0; flowB=mc*mc-1; flowP=new Float32Array(flowN); flowMaxD=1;
+    // random, far-apart endpoints (NOT corners) so the solution isn't just a diagonal
+    var bfsD=new Int32Array(flowN), bfsQ=new Int32Array(flowN);
+    function bfsFrom(src){ bfsD.fill(-1); var h=0,t=0; bfsD[src]=0; bfsQ[t++]=src; while(h<t){ var nn=bfsQ[h++]; for (var kk=flowAdjStart[nn];kk<flowAdjStart[nn+1];kk++){ var mm=flowAdjNode[kk]; if (bfsD[mm]<0){ bfsD[mm]=bfsD[nn]+1; bfsQ[t++]=mm; } } } }
+    var tries=0, sA=0, sB=0, thresh=mc*1.15;
+    do { sA=(Math.random()*flowN)|0; bfsFrom(sA); sB=(Math.random()*flowN)|0; tries++; } while (tries<12 && bfsD[sB]<thresh);
+    flowA=sA; flowB=sB; flowP=new Float32Array(flowN); flowMaxD=1;
     mazeBg.width=worldPxW; mazeBg.height=worldPxH; mazeBgCtx.clearRect(0,0,worldPxW,worldPxH); mazeBgCtx.fillStyle="#1b1f2b";
     function blk(gx,gy){ mazeBgCtx.fillRect((x0+gx*B)*cell,(y0+gy*B)*cell,B*cell,B*cell); }
     for (var bj=0;bj<mc;bj++) for (var bi=0;bi<mc;bi++){ blk(2*bi+1,2*bj+1); if (bi<mc-1 && adjR[bj*mc+bi]) blk(2*bi+2,2*bj+1); if (bj<mc-1 && adjD[bj*mc+bi]) blk(2*bi+1,2*bj+2); }
@@ -524,14 +530,14 @@
 
   // ---- The blind forager: Tero flow, explores from the source with no map ----
   function seedPhysFlow(){
-    buildCoarseMaze(cols>480 ? 24 : 15, 0.22);   // harder: bigger + more loops/dead-ends
+    buildCoarseMaze(cols>480 ? 26 : 16, 0.32);   // harder: bigger + many loops/splits, random endpoints
     occ=new Uint8Array(flowN); occ[flowA]=1; dead=new Uint8Array(flowN); flowFix=new Int8Array(flowN); flowSink=false;
   }
   function stepPhysFlow(times){
     // FORAGING: the slime grows outward from the source. Every frontier tip is a temporary
     // current-drain (protoplasm pushing into new corridors); dead-ends stop being drains and
     // starve; once the frontier reaches the goal, the goal is the only drain → shortest tube wins.
-    var delta=0.25, muExp=1.8, Dmin=0.02, Dmax=1.4, Dgrow=0.30, growP=0.16, peelP=0.55, sweeps=Math.min(300, flowN*2), omega=1.7;
+    var delta=0.25, muExp=1.8, Dmin=0.02, Dmax=1.4, Dgrow=0.30, growP=0.10, peelP=0.55, sweeps=Math.min(300, flowN*2), omega=1.7;
     for (var s=0;s<times;s++){
       // 1. grow the frontier into unexplored corridors (stops once the goal is found)
       if (!flowSink){
@@ -582,7 +588,7 @@
   // ---- The smart solver: BIDIRECTIONAL A* — two frontiers grow from both foods, each guided
   //      toward the other (f = cost-so-far + straight-line distance). Explores far fewer cells. ----
   function seedSmart(){
-    buildCoarseMaze(cols>480 ? 30 : 17, 0.28);   // very hard: big + heavily braided
+    buildCoarseMaze(cols>480 ? 32 : 18, 0.34);   // very hard: big + heavily braided, random endpoints
     owner=new Int8Array(flowN); gA=new Float32Array(flowN); gB=new Float32Array(flowN);
     parA=new Int32Array(flowN); parB=new Int32Array(flowN); parA.fill(-1); parB.fill(-1);
     owner[flowA]=1; owner[flowB]=2; openA=[flowA]; openB=[flowB]; smartMeet=false; smartPath=null; smartExplored=2;
@@ -845,7 +851,13 @@
   function speedSteps(){ var vv=parseInt(document.getElementById("speed").value,10); return Math.max(1, Math.round(Math.pow(vv/6,2))+1); }
   var raf;
   function tick(){ try { if (running) advance(); render(); updateReadouts(); } catch(e){} raf=requestAnimationFrame(tick); }
-  function advance(){ if (mode==="ant") stepTurmite(speedSteps()); else if (mode==="life"){ var f=Math.max(1,Math.round(speedSteps()/8)); for (var k=0;k<f;k++) stepLife(); } else if (mode==="grazers") stepGrazers(speedSteps()); else if (mode==="rd"){ var it=Math.min(24,Math.max(4,speedSteps())); stepRD(it); } else if (mode==="lenia"){ var ls=Math.max(1,Math.min(4,Math.round(speedSteps()/6))); stepLenia(ls); } else if (mode==="phys"){ if (physKind==="maze") stepMazeSolve(Math.max(1,Math.round(speedSteps()/3))); else if (physKind==="flow") stepPhysFlow(Math.max(1,Math.round(speedSteps()/6))); else if (physKind==="smart") stepSmart(Math.max(1,Math.round(speedSteps()/6))); else if (physKind==="slimemaze") stepSlimeMaze(Math.max(1,Math.min(6,Math.round(speedSteps()/6)))); else { var ps=Math.max(1,Math.min(4,Math.round(speedSteps()/8))); stepPhys(ps); } } else { stepSand(speedSteps()*4); } }
+  function advance(){ if (mode==="ant") stepTurmite(speedSteps()); else if (mode==="life"){ var f=Math.max(1,Math.round(speedSteps()/8)); for (var k=0;k<f;k++) stepLife(); } else if (mode==="grazers") stepGrazers(speedSteps()); else if (mode==="rd"){ var it=Math.min(24,Math.max(4,speedSteps())); stepRD(it); } else if (mode==="lenia"){ var ls=Math.max(1,Math.min(4,Math.round(speedSteps()/6))); stepLenia(ls); } else if (mode==="phys"){
+      if (physKind==="maze"){ mazeAccum += parseInt(document.getElementById("speed").value,10)/22; var nm=mazeAccum|0; mazeAccum-=nm; if (nm>0) stepMazeSolve(nm); }
+      else if (physKind==="flow"){ mazeAccum += parseInt(document.getElementById("speed").value,10)/95; var nf=mazeAccum|0; mazeAccum-=nf; if (nf>0) stepPhysFlow(nf); }
+      else if (physKind==="smart"){ mazeAccum += parseInt(document.getElementById("speed").value,10)/80; var ns=mazeAccum|0; mazeAccum-=ns; if (ns>0) stepSmart(ns); }
+      else if (physKind==="slimemaze") stepSlimeMaze(Math.max(1,Math.min(6,Math.round(speedSteps()/6))));
+      else { var ps=Math.max(1,Math.min(4,Math.round(speedSteps()/8))); stepPhys(ps); }
+    } else { stepSand(speedSteps()*4); } }
 
   // ---- readouts + reveal ----
   var stepVal=document.getElementById("stepVal"), popVal=document.getElementById("popVal"), reveal=document.getElementById("reveal");
