@@ -216,6 +216,7 @@
           <button class="seed" data-wire="clock" aria-pressed="true">Clock</button>
           <button class="seed" data-wire="wire">Wire</button>
           <button class="seed" data-wire="or">OR gate</button>
+          <button class="seed" data-wire="xor">XOR gate</button>
         </div>
         <span class="hint" id="wireHint">electrons flow along wires &middot; 1 or 2 neighbours fire a gate</span>
       </div>
@@ -922,7 +923,21 @@
   // Gate layouts. 'A'/'B' mark where an input electron is injected (moving right); 'O' the output cell.
   var WW_GATES = {
     or:  { art:[ "A######       ","      O###### ","B######       " ], period:22 },
-    xor: { art:[ "A#####@       ","      O###### ","      #       ","B#####@       " ], period:22 }
+    // XOR: A feeds two of the output junction's diagonal corners (2 heads), B feeds a third (1 head).
+    // one input → 1-2 heads → fires; both inputs → 3 heads arrive the same tick → the "not 3" rule
+    // suppresses → 0. Path lengths are tuned so all three heads coincide. Verified 00→0,01→1,10→1,11→0.
+    xor: { art:[
+      "        B######    ",
+      "              #    ",
+      "              #    ",
+      "              #    ",
+      "              #    ",
+      "              #    ",
+      "       ###### #    ",
+      " A######     #    ",
+      "       ###### #    ",
+      "              #    ",
+      "              #####O" ], period:30 }
   };
   var wwGate=null, wwCase=0, wwOutSeen=false, wwResults=[-1,-1,-1,-1], wwInA=null, wwInB=null, wwOut=null;
   function parseWWinto(art, ox, oy){
