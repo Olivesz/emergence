@@ -59,3 +59,41 @@ python3 wwlogic.py   # primitives + derived gates
 python3 modules.py   # datapath modules
 python3 run_cpu.py   # the CPU running real programs
 ```
+
+Interactive front panel: **[`cpu.html`](cpu.html)** — pick a program, hit Run, and
+watch one register drive the bus (green) while another latches it (cyan).
+
+---
+
+# SAP-2 — a much more capable machine
+
+`sap2.py` is a far bigger CPU on the same NAND+DFF substrate: **256 bytes of
+memory, ~35 instructions, and a stack**. Where SAP-1 is hardwired and 16 words,
+SAP-2 is **microcoded** — a resettable step counter drives a gate-level control
+store (a PLA generated from a microcode table), so a rich instruction set fits.
+
+- **8-bit addresses → 256 bytes**, multi-byte instructions
+- **multi-function ALU**: add/sub/and/or/xor/not/shl/shr/inc/dec, with **Z/C/S flags**
+- **indirect addressing** (B as a pointer, `LDX`/`STX`), immediate arithmetic, `CMP`
+- **a stack** (`SP`) with **`CALL`/`RET`/`PUSH`/`POP`** → subroutines & recursion
+- **I/O**: a live `IN` register and a **memory-mapped display** at `0xF0–0xFF`
+
+The CPU logic stays gate-level NAND+DFF (4,575 gates); the 256-byte main store is a
+memory array spliced in at the clock edge (SAP-1 already proved RAM is buildable
+cell-for-cell — replicating it 256× just slows the sim).
+
+Real algorithms, all self-checked in `run_sap2.py`:
+
+- **multiply** 6×7 → 42, **divide** 47÷5 → 9 r 2, **gcd**(48,36) → 12
+- **primes < 20** → 2,3,5,7,11,13,17,19 (nested loops + modulo)
+- **bubble sort** of an in-memory array via indirect addressing
+
+```bash
+python3 run_sap2.py   # six real algorithms on the SAP-2
+```
+
+Interactive debugger panel: **[`cpu2.html`](cpu2.html)** — a code editor with an
+assembler, single-step / breakpoints (click a memory cell), editable memory
+(double-click), an input dial, and the memory-mapped screen.
+`wwcpu2.js` is the JS port (verified identical to the Python); `cpu2.html` is
+built from `cpu2_shell.html` with the engine injected.
