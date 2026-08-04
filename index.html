@@ -219,6 +219,7 @@
           <button class="seed" data-wire="xor">XOR gate</button>
           <button class="seed" data-wire="and">AND gate</button>
           <button class="seed" data-wire="ha">Half-adder</button>
+          <button class="seed" data-wire="memory">Memory</button>
         </div>
         <span class="hint" id="wireHint">electrons flow along wires &middot; 1 or 2 neighbours fire a gate</span>
       </div>
@@ -920,7 +921,19 @@
   // and an auto-cycling controller that walks A,B through 00→01→10→11 so you watch the truth table.
   var WW_ART = {
     clock: [ "#~@###########","#            #","#            #","#            #","##############" ],
-    wire:  [ "~@########################" ]
+    wire:  [ "~@########################" ],
+    // MEMORY: a bit STORED as an electron circling a loop (present=1). It never decays — that's how
+    // a computer remembers. The tap on the bottom edge is a non-destructive READ: each time the bit
+    // passes, it fires a copy out to the right (a heartbeat) while the stored bit keeps circulating.
+    memory: [
+      "#~@#################",
+      "#                  #",
+      "#                  #",
+      "#                  #",
+      "####################",
+      "        #",
+      "        #",
+      "        ####################" ]
   };
   // Gate layouts. 'A'/'B' mark where an input electron is injected (moving right); 'O' the output cell.
   var WW_GATES = {
