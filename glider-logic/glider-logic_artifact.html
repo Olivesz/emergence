@@ -1,0 +1,253 @@
+<style>
+  :root{
+    --ground:#06080c; --panel:#0d1017; --panel2:#11151d; --edge:#1d2431;
+    --ink:#e7ecf3; --dim:#7c8798; --faint:#4a5464;
+    --glider:#3fe9ff; --gun:#e0a53a; --live:#5dff9b; --off:#ff4d6d; --violet:#b98cff;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:radial-gradient(1200px 700px at 70% -10%,#0e141c 0%,var(--ground) 62%);
+    color:var(--ink);font-family:var(--sans);min-height:100vh}
+  body{padding:20px;max-width:1120px;margin:0 auto}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+  h1{font-size:18px;letter-spacing:.13em;text-transform:uppercase;margin:0;font-weight:600}
+  h1 b{color:var(--glider)}
+  .sub{color:var(--dim);font-size:12.5px;margin:4px 0 0;max-width:78ch;line-height:1.5}
+  .sub b{color:var(--gun)}
+  .head{border-bottom:1px solid var(--edge);padding-bottom:15px;margin-bottom:15px}
+
+  .tabs{display:flex;gap:7px;flex-wrap:wrap;margin:14px 0}
+  .tab{font-family:var(--sans);font-size:12.5px;color:var(--dim);background:var(--panel2);
+    border:1px solid var(--edge);border-radius:8px;padding:8px 13px;cursor:pointer;transition:.15s}
+  .tab:hover{border-color:var(--glider);color:var(--glider)}
+  .tab.on{background:var(--glider);color:#04212a;border-color:var(--glider);font-weight:600}
+
+  .stage{display:grid;grid-template-columns:minmax(0,1fr) 262px;gap:16px}
+  @media(max-width:860px){.stage{grid-template-columns:1fr}}
+  canvas{width:100%;background:#05070b;border:1px solid var(--edge);border-radius:12px;display:block}
+  .side{display:flex;flex-direction:column;gap:12px}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--edge);border-radius:12px;padding:14px}
+  .card h3{margin:0 0 6px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);font-weight:600}
+  .card p{margin:0;font-size:12.5px;color:var(--dim);line-height:1.55}
+
+  .transport{display:flex;gap:7px;flex-wrap:wrap}
+  button{font-family:var(--sans);font-size:12.5px;color:var(--ink);background:var(--panel2);
+    border:1px solid var(--edge);border-radius:8px;padding:8px 12px;cursor:pointer;transition:.15s}
+  button:hover{border-color:var(--glider);color:var(--glider)}
+  button.primary{background:var(--glider);color:#04212a;border-color:var(--glider);font-weight:600}
+  input[type=range]{accent-color:var(--glider);width:100%}
+  .lbl{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:4px}
+
+  .io{display:flex;flex-direction:column;gap:10px}
+  .toggle{display:flex;align-items:center;justify-content:space-between;background:var(--panel);
+    border:1px solid var(--edge);border-radius:9px;padding:9px 12px}
+  .toggle .nm{font-family:var(--mono);font-size:13px}
+  .sw{font-family:var(--mono);font-size:12px;padding:4px 12px;border-radius:6px;border:1px solid var(--edge);
+    background:var(--panel2);color:var(--dim);cursor:pointer;min-width:52px;text-align:center}
+  .sw.on{background:rgba(63,233,255,.14);border-color:var(--glider);color:var(--glider)}
+  .out{display:flex;align-items:center;justify-content:space-between;background:var(--panel);
+    border:1px solid var(--edge);border-radius:9px;padding:11px 12px}
+  .lamp{width:16px;height:16px;border-radius:50%;background:#20252e;border:1px solid var(--edge);transition:.15s}
+  .lamp.on{background:var(--live);box-shadow:0 0 14px var(--live);border-color:var(--live)}
+  .outval{font-family:var(--mono);font-size:15px;color:var(--faint)}
+  .outval.on{color:var(--live)}
+  .clk{font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .foot{color:var(--faint);font-size:11px;margin-top:16px;border-top:1px solid var(--edge);padding-top:12px;line-height:1.6}
+  .foot a{color:var(--glider);text-decoration:none}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:10.5px;color:var(--dim);margin-top:2px}
+  .legend i{width:9px;height:9px;border-radius:2px;display:inline-block;vertical-align:-1px;margin-right:4px}
+</style>
+
+  <div class="head">
+    <h1>Logic from <b>gliders</b></h1>
+    <p class="sub">Conway's Game of Life — one level below Wireworld. No wires, no clock, no signals built
+      into the rules. Just <b>3 to be born, 2 to survive</b>. A glider is the signal; a glider gun is a signal
+      source; where two gliders collide, that's a logic gate. Everything you see obeys only that one rule.</p>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="stage">
+    <canvas id="cv" width="820" height="520"></canvas>
+    <div class="side">
+      <div class="card" id="explain"><h3>About</h3><p id="explainText"></p></div>
+      <div class="card">
+        <h3>Transport</h3>
+        <div class="transport">
+          <button id="play" class="primary">⏸ Pause</button>
+          <button id="stepb">Step</button>
+          <button id="reset">Reset</button>
+        </div>
+        <div style="margin-top:10px"><div class="lbl">Speed</div><input id="speed" type="range" min="1" max="30" value="10"></div>
+        <div class="clk" id="clk" style="margin-top:8px">tick 0</div>
+      </div>
+      <div class="card" id="iocard">
+        <h3>Inputs</h3>
+        <div class="io" id="io"></div>
+      </div>
+      <div class="card">
+        <div class="legend">
+          <span><i style="background:var(--glider)"></i>glider (signal)</span>
+          <span><i style="background:var(--violet)"></i>output lane</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="foot">The gates here are the same reactions verified cell-by-cell in
+    <a href="https://github.com/Olivesz/emergence/tree/main/glider-logic">glider-logic/gates.py</a>.
+    NAND is universal, so the same logic that runs the <a href="../cpu/cpu2.html">Wireworld CPU</a> could,
+    in principle, stand on these glider gates — computation all the way down.</p>
+
+<script>
+"use strict";
+function key(x,y){ return x+","+y; }
+function unkey(k){ const i=k.indexOf(","); return [ +k.slice(0,i), +k.slice(i+1) ]; }
+function step(cells){
+  const nb=new Map();
+  for(const k of cells){ const [x,y]=unkey(k);
+    for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){ if(!dx&&!dy)continue;
+      const kk=key(x+dx,y+dy); nb.set(kk,(nb.get(kk)||0)+1); } }
+  const nx=new Set();
+  for(const [k,n] of nb){ if(n===3 || (n===2 && cells.has(k))) nx.add(k); }
+  return nx;
+}
+function runN(cells,n){ let c=cells; for(let i=0;i<n;i++) c=step(c); return c; }
+function translate(cells,dx,dy){ const s=new Set(); for(const k of cells){const[x,y]=unkey(k); s.add(key(x+dx,y+dy));} return s; }
+
+function parseP(rows){ const s=new Set();
+  for(let y=0;y<rows.length;y++) for(let x=0;x<rows[y].length;x++) if("O*#".includes(rows[y][x])) s.add(key(x,y));
+  return s; }
+function mirror(cells,mx,my,w,h){ const s=new Set();
+  for(const k of cells){ const[x,y]=unkey(k); s.add(key(mx?(w-1-x):x, my?(h-1-y):y)); } return s; }
+
+const GLIDER=parseP([".O.","..O","OOO"]);
+const GOSPER=parseP([
+  "........................O...........",
+  "......................O.O...........",
+  "............OO......OO............OO",
+  "...........O...O....OO............OO",
+  "OO........O.....O...OO..............",
+  "OO........O...O.OO....O.O...........",
+  "..........O.....O.......O...........",
+  "...........O...O....................",
+  "............OO......................"]);
+const DIRG={ SE:GLIDER, SW:mirror(GLIDER,true,false,3,3), NE:mirror(GLIDER,false,true,3,3), NW:mirror(GLIDER,true,true,3,3) };
+function glider(dir,x,y,phase){ return translate(runN(DIRG[dir], ((phase%4)+4)%4), x, y); }
+
+// gate output regions verified in gates.py (A at origin), shifted by the A-anchor.
+const SCENES = {
+  glider: {
+    name:"The signal · a glider",
+    text:"Five live cells that crawl diagonally forever, keeping their shape and returning to it every 4 ticks. This is the moving 1 we send down a lane — the whole idea of a signal, emergent from the one rule.",
+    cam:[0,0], period:0, inputs:[],
+    build:()=> glider("SE",-24,-16,0), cull:true
+  },
+  gun: {
+    name:"The source · Gosper gun",
+    text:"A 36-cell machine that returns to itself every 30 ticks and, each cycle, spits out one glider. A signal source — an endless stream of 1s, a clock — with no wire anywhere in sight.",
+    cam:[6,6], period:0, inputs:[],
+    build:()=> translate(GOSPER,-14,-14), cull:true
+  },
+  not: {
+    name:"NOT · a collision",
+    text:"A carrier glider (always on) heads for the output lane. Turn the input ON: its glider meets the carrier head-on and both annihilate — output 0. Turn it OFF: the carrier sails through — output 1. That's NOT, from one collision.",
+    cam:[6,4], period:64, inputs:[["B","input"]],
+    outRegion:[8,8,12,12],
+    build:(io)=>{ let s=glider("SE",-3,-3,0);
+                  if(io.B) s=new Set([...s, ...glider("NW",1,-4,0)]); return s; },
+    lampFromRegion:true
+  },
+  and: {
+    name:"AND · a merge",
+    text:"An SE glider (A) and an SW glider (B) are aimed to meet. Alone, each flies off its own lane. Together they merge into a single new glider heading up-left onto the output lane — a glider appears there only when BOTH inputs are 1. That's AND.",
+    cam:[-3,-1], period:80, inputs:[["A","input A"],["B","input B"]],
+    outRegion:[-12,-11,-6,-5],
+    build:(io)=>{ let s=new Set();
+                  if(io.A) s=new Set([...s, ...glider("SE",3,2,0)]);
+                  if(io.B) s=new Set([...s, ...glider("SW",5,6,1)]); return s; },
+    lampFromRegion:true
+  }
+};
+
+const cv=document.getElementById("cv"), ctx=cv.getContext("2d");
+const CELL=8;
+let sceneKey="glider", scene=SCENES.glider, cells=new Set(), tick=0, playing=true, raf=null;
+let io={A:true,B:false}, lampLatched=false, lampShown=false, acc=0;
+
+function regionOccupied(cs){ if(!scene.outRegion) return false; const [x0,y0,x1,y1]=scene.outRegion;
+  for(const k of cs){ const[x,y]=unkey(k); if(x>=x0&&x<=x1&&y>=y0&&y<=y1) return true; } return false; }
+function computeOutput(){            // run the reaction once, headless, for an instant answer
+  if(!scene.outRegion||!scene.period) return false;
+  let c=scene.build(io);
+  for(let i=0;i<scene.period;i++){ c=step(c); if(regionOccupied(c)) return true; }
+  return false;
+}
+function reset(){ tick=0; lampLatched=false; lampShown=computeOutput(); cells=scene.build(io); render(); updateLamp(); }
+function cullFar(){ const [cx,cy]=scene.cam; const R=80;
+  for(const k of cells){ const[x,y]=unkey(k); if(Math.abs(x-cx)>R||Math.abs(y-cy)>R) cells.delete(k); } }
+function inRegion(){ if(!scene.outRegion) return false; const [x0,y0,x1,y1]=scene.outRegion;
+  for(const k of cells){ const[x,y]=unkey(k); if(x>=x0&&x<=x1&&y>=y0&&y<=y1) return true; } return false; }
+function advance(){
+  cells=step(cells); tick++;
+  if(scene.cull) cullFar();
+  if(scene.lampFromRegion && inRegion()) lampLatched=true;
+  if(scene.period && tick % scene.period === 0){ lampShown=lampLatched; lampLatched=false; cells=scene.build(io); }
+  updateLamp();
+}
+function w2s(x,y){ const [cx,cy]=scene.cam; return [ cv.width/2 + (x-cx)*CELL, cv.height/2 + (y-cy)*CELL ]; }
+function render(){
+  ctx.fillStyle="rgba(5,7,11,0.30)"; ctx.fillRect(0,0,cv.width,cv.height);
+  if(scene.outRegion){ const [x0,y0,x1,y1]=scene.outRegion;
+    const [sx0,sy0]=w2s(x0-0.5,y0-0.5); const [sx1,sy1]=w2s(x1+0.5,y1+0.5);
+    ctx.strokeStyle="rgba(185,140,255,0.55)"; ctx.lineWidth=1.5; ctx.strokeRect(sx0,sy0,sx1-sx0,sy1-sy0); }
+  ctx.shadowColor="#3fe9ff"; ctx.shadowBlur=7; ctx.fillStyle="#3fe9ff";
+  for(const k of cells){ const [x,y]=unkey(k); const [sx,sy]=w2s(x,y);
+    if(sx<-CELL||sy<-CELL||sx>cv.width||sy>cv.height) continue; ctx.fillRect(sx,sy,CELL-1,CELL-1); }
+  ctx.shadowBlur=0;
+  document.getElementById("clk").textContent="tick "+tick;
+}
+function updateLamp(){ const lamp=document.getElementById("lamp"), ov=document.getElementById("outval");
+  if(!lamp) return; const on=scene.period?lampShown:false;
+  lamp.classList.toggle("on",on); ov.classList.toggle("on",on); ov.textContent=on?"1":"0"; }
+function frame(){ if(playing){ acc+=(+document.getElementById("speed").value);
+    while(acc>=10){ advance(); acc-=10; } } render(); raf=requestAnimationFrame(frame); }
+
+function buildTabs(){ const t=document.getElementById("tabs");
+  for(const k in SCENES){ const b=document.createElement("button"); b.className="tab"+(k===sceneKey?" on":"");
+    b.textContent=SCENES[k].name; b.onclick=()=>selectScene(k); t.appendChild(b); } }
+function buildIO(){
+  const io_=document.getElementById("io"); io_.replaceChildren();
+  const card=document.getElementById("iocard");
+  if(!scene.inputs.length){ card.style.display="none"; return; } card.style.display="";
+  for(const [id,label] of scene.inputs){
+    const row=document.createElement("div"); row.className="toggle";
+    const nm=document.createElement("span"); nm.className="nm"; nm.textContent=label;
+    const sw=document.createElement("button"); sw.className="sw"+(io[id]?" on":""); sw.textContent=io[id]?"1":"0";
+    sw.onclick=()=>{ io[id]=!io[id]; sw.className="sw"+(io[id]?" on":""); sw.textContent=io[id]?"1":"0"; reset(); };
+    row.appendChild(nm); row.appendChild(sw); io_.appendChild(row);
+  }
+  const out=document.createElement("div"); out.className="out";
+  const l=document.createElement("span"); l.className="nm"; l.textContent="output";
+  const wrap=document.createElement("div"); wrap.style.display="flex"; wrap.style.alignItems="center"; wrap.style.gap="10px";
+  const ov=document.createElement("span"); ov.className="outval"; ov.id="outval"; ov.textContent="0";
+  const lamp=document.createElement("span"); lamp.className="lamp"; lamp.id="lamp";
+  wrap.appendChild(ov); wrap.appendChild(lamp); out.appendChild(l); out.appendChild(wrap); io_.appendChild(out);
+}
+function selectScene(k){
+  sceneKey=k; scene=SCENES[k];
+  document.querySelectorAll(".tab").forEach((b,i)=>b.classList.toggle("on", Object.keys(SCENES)[i]===k));
+  document.getElementById("explainText").textContent=scene.text;
+  document.querySelector("#explain h3").textContent=scene.name;
+  if(k==="not") io={A:true,B:true};
+  if(k==="and") io={A:true,B:true};
+  ctx.fillStyle="#05070b"; ctx.fillRect(0,0,cv.width,cv.height);
+  buildIO(); reset();
+}
+document.getElementById("play").onclick=function(){ playing=!playing; this.textContent=playing?"⏸ Pause":"▶ Play"; };
+document.getElementById("stepb").onclick=()=>{ playing=false; document.getElementById("play").textContent="▶ Play"; advance(); render(); };
+document.getElementById("reset").onclick=()=>reset();
+
+buildTabs(); selectScene("glider"); frame();
+</script>
