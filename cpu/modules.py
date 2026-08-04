@@ -44,6 +44,43 @@ def add_sub(c, A, B, sub):
     return S, carry
 
 
+# ---- multi-function ALU (add/sub/logic/shift/inc/dec), from NAND ----------
+# op indices: 0 ADD 1 SUB 2 AND 3 OR 4 XOR 5 NOT 6 SHL 7 SHR 8 INC 9 DEC 10 PASSA 11 PASSB
+ALU_OPS = dict(ADD=0, SUB=1, AND=2, OR=3, XOR=4, NOT=5, SHL=6, SHR=7,
+               INC=8, DEC=9, PASSA=10, PASSB=11)
+
+def alu(c, A, B, sel):
+    """A (op) B selected by 4-bit `sel`. Returns (result8, carry, zero, sign).
+       carry: add/inc carry-out, sub/dec 'borrow', shift bit shifted out."""
+    n = len(A)
+    one = [c.VCC] + [c.GND] * (n - 1)
+    add, cadd = add_sub(c, A, B, c.GND)
+    sub, csub = add_sub(c, A, B, c.VCC)          # A-B; csub=1 == no borrow
+    borrow = c.not_(csub)
+    andb = [c.and_(a, b) for a, b in zip(A, B)]
+    orb  = [c.or_(a, b)  for a, b in zip(A, B)]
+    xorb = [c.xor_(a, b) for a, b in zip(A, B)]
+    notb = [c.not_(a) for a in A]
+    shl = [c.GND] + A[0:n-1]; cshl = A[n-1]
+    shr = A[1:n] + [c.GND];   cshr = A[0]
+    inc, cinc = add_sub(c, A, one, c.GND)
+    dec, cdec = add_sub(c, A, one, c.VCC); decb = c.not_(cdec)
+    cands = [add, sub, andb, orb, xorb, notb, shl, shr, inc, dec, A, B]
+    carrs = [cadd, borrow, c.GND, c.GND, c.GND, c.GND, cshl, cshr, cinc, decb, c.GND, c.GND]
+    lines = decoder(c, sel)                      # 16 one-hot; we use 0..11
+    result = mux_onehot(c, lines[:len(cands)], cands)
+    carry = c.or_list([c.and_(lines[i], carrs[i]) for i in range(len(carrs))])
+    zero = c.not_(c.or_list(result))
+    sign = result[n-1]
+    return result, carry, zero, sign
+
+
+def match_const(c, bus, val):
+    """1 iff `bus` equals the constant `val` (an opcode decoder line)."""
+    return c.and_list([bus[i] if (val >> i) & 1 else c.not_(bus[i])
+                       for i in range(len(bus))])
+
+
 # ---- N-bit program counter: register + increment + jump load -------------
 def program_counter(c, count_en, jump_load, jump_addr, width, clr=None):
     """A PC that increments when count_en=1, or loads jump_addr when jump_load=1.

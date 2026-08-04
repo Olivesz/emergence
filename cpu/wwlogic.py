@@ -32,6 +32,7 @@ class Circuit:
         self.nands = []         # (out, a, b)
         self.dffs = []          # dict: q, d, en, clr, init
         self._n = 0
+        self._order = None      # cached topological evaluation order for nands
         self.GND = self.net(0)  # constant 0
         self.VCC = self.net(1)  # constant 1
         self._const = {self.GND, self.VCC}
@@ -49,6 +50,7 @@ class Circuit:
     def nand(self, a, b):
         o = self.net()
         self.nands.append((o, a, b))
+        self._order = None      # topology changed
         return o
 
     # --- primitive: D flip-flop (rising edge), optional load-enable & clear
@@ -95,26 +97,52 @@ class Circuit:
         return [self.mux2(sel, a, b) for a, b in zip(A, B)]
 
     # --- evaluation -------------------------------------------------------
-    def settle(self, max_iter=None):
-        v = self.vals
-        # keep constants pinned
-        v[self.GND] = 0; v[self.VCC] = 1
-        n = len(self.nands)
-        cap = max_iter if max_iter is not None else (n + 5)
-        for _ in range(cap):
-            changed = False
-            for (o, a, b) in self.nands:
-                nv = 0 if (v[a] and v[b]) else 1
-                if v[o] != nv:
-                    v[o] = nv; changed = True
-            if not changed:
-                return
-        # If we get here the combinational logic didn't converge (a real
-        # combinational loop) — that's a design bug we want to hear about.
-        raise RuntimeError("combinational logic failed to settle (cycle?)")
+    def _build_order(self):
+        # Combinational NANDs form a DAG (cycles only ever close through a DFF,
+        # whose Q is a state root). Topologically sort them once so settle() is a
+        # single O(gates) pass instead of an O(gates^2) fixpoint. Iterative DFS
+        # to avoid blowing the recursion limit on large machines.
+        producer = {}
+        for idx, (o, a, b) in enumerate(self.nands):
+            producer[o] = idx
+        state = [0] * len(self.nands)   # 0=unseen 1=on-stack 2=done
+        order = []
+        for start in range(len(self.nands)):
+            if state[start]:
+                continue
+            stack = [(start, 0)]
+            while stack:
+                idx, phase = stack.pop()
+                if phase == 0:
+                    if state[idx] == 2:
+                        continue
+                    state[idx] = 1
+                    stack.append((idx, 1))
+                    o, a, b = self.nands[idx]
+                    for inp in (a, b):
+                        p = producer.get(inp)
+                        if p is not None and state[p] == 0:
+                            stack.append((p, 0))
+                else:
+                    if state[idx] != 2:
+                        state[idx] = 2
+                        order.append(idx)
+        self._order = order
 
-    def tick(self):
-        self.settle()
+    def settle(self, max_iter=None):
+        if self._order is None:
+            self._build_order()
+        v = self.vals
+        v[self.GND] = 0; v[self.VCC] = 1     # pin constants
+        nands = self.nands
+        for idx in self._order:
+            o, a, b = nands[idx]
+            v[o] = 0 if (v[a] and v[b]) else 1
+
+    def commit_dffs(self):
+        """Sample every DFF's D (assumes combinational already settled) and commit
+           all Q's simultaneously — the clock edge, with no settle of its own.
+           Exposed so a machine can splice behavioral memory in at the edge."""
         v = self.vals
         nxt = []
         for ff in self.dffs:
@@ -127,6 +155,10 @@ class Circuit:
             nxt.append((ff['q'], nv))
         for q, nv in nxt:
             v[q] = nv
+
+    def tick(self):
+        self.settle()
+        self.commit_dffs()
         self.settle()
 
     # --- convenience ------------------------------------------------------
