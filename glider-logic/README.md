@@ -71,12 +71,36 @@ forever as they fly past every catalyst — plus a **causality** back-cast test
 (hand-placed reactions can be unphysical; routed ones can't be).
 
 ```
-life.py     the Life engine (sparse) + glider, Gosper gun, eater — all verified
-gates.py    four-direction gliders, annihilation & merge reactions, and the
-            NOT / INHIBIT / AND / XOR / NAND gates + half/full-adder + 3+2
-gadgets.py  the Snark reflector and the glider duplicator, verified in-engine
-routed.py   physically-routed fan-out, INHIBIT, and a full AND gate — in raw Life
+life.py         Life engine (sparse) + glider, Gosper gun, eater — all verified
+gates.py        four-direction gliders, annihilation & merge reactions, and the
+                NOT / INHIBIT / AND / XOR / NAND gates + half/full-adder + 3+2
+gadgets.py      the Snark reflector and the glider duplicator, verified in-engine
+routed.py       physically-routed fan-out, INHIBIT, and a full AND gate
+crossover.py    a verified glider crossover (timed weave) — carry over data
+gun_routing.py  a real period-60 gun driving the Snark — a live routed stream
+carlini_adder.py  fetch + parse + hashlife-verify Carlini's REAL 6+5=11 adder
 ```
+
+## The real thing, verified: a complete multi-bit glider adder
+
+We didn't just build the parts — we checked that the whole machine exists and
+runs. `carlini_adder.py` fetches Nicholas Carlini's
+[ripple-carry glider adder](https://nicholas.carlini.com/writing/2020/digital-logic-game-of-life.html)
+(a `.mc` macrocell file), parses its quadtree from scratch (**137,712 live cells**,
+a 36,715 × 41,556 board), and — because the naive engine would take *days* — runs
+it on a compact **pure-Python hashlife that is cross-validated cell-for-cell against
+`life.step`**, for **2²⁰ generations**, then decodes the output glider streams:
+
+```
+operand A = 0110 = 6      operand B = 0101 = 5      sum = 1011 = 11
+[PASS] THE ADDER COMPUTES: 6 + 5 = 11 — entirely in gliders
+```
+
+So the ladder is real end to end: **our** gates, arithmetic, routing hardware, and
+a physically-routed AND gate + crossover + gun-driven signal — and, as the
+existence proof at scale, a full multi-bit adder computing 6+5=11, verified in our
+own engine. A live gun feeding the Snark and the routed AND run in the
+[whole-circuit viewer](life-viewer.html); the 137k-cell adder is best watched in Golly.
 
 Interactive visualizers: **[`glider-logic.html`](glider-logic.html)** — NOT / AND /
 XOR and the **"Add a bit"** half-adder (flip both inputs to 1 and watch the sum
