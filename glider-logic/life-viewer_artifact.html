@@ -147,10 +147,13 @@ o3bo3b2o$19b3o4b2o$19bo$16b2obo$16b2ob2o3$27b2o$28bo$25b3o$25bo7$obo$b
 b2o$25bob2o$26bo2bo$27b2o$42b2o$42b2o4$51bo3b2o$50bobo3bo$49bobo3bo$45
 b2obobo3bo$45b2obo2b4obo5b2o$49bobo3bobo5bo$45b2ob2o2bo2bobo2b3o$46bob
 o2b2o3bo3bo$34b2o10bobo$34b2o11bo!`;
+const CROSSOVER=`x = 8, y = 48, rule = B3/S23
+6bo$7bo$5b3o43$bo$b2o$obo!`;
 const PRESETS={
   "▸ Routed AND gate · gliders via 2 Snarks":()=>parseRLE(ROUTED_AND),
   "▸ Routed fan-out · dup + 2 reflectors":()=>parseRLE(ROUTED_FANOUT),
   "▸ Routed INHIBIT · A AND NOT B":()=>parseRLE(ROUTED_INHIBIT),
+  "▸ Crossover · two signals cross (timed weave)":()=>parseRLE(CROSSOVER),
   "One Gosper gun":()=>new Set(GOSPER),
   "A stream of guns (×12)":()=>gunField(12,4),
   "Gun grid (×24)":()=>gunField(24,6),
@@ -185,6 +188,7 @@ const DESC={
  "▸ Routed AND gate · gliders via 2 Snarks":"A physically-routed AND gate. Input B is turned 90° through TWO Snark reflectors onto the merge; input A arrives directly. Both present → they fuse into one output glider that escapes on a lane neither input touches. Verified tick-exact in raw Life.",
  "▸ Routed fan-out · dup + 2 reflectors":"One glider → a duplicator splits it in two → one copy is steered through two Snark reflectors onto a chosen parallel lane. Real fan-out with routing.",
  "▸ Routed INHIBIT · A AND NOT B":"A routed inhibit gate: A's glider reaches the output unless B's (Snark-routed) glider annihilates it. Output = A AND NOT B.",
+ "▸ Crossover · two signals cross (timed weave)":"Two glider signals cross the SAME point and both pass through UNCHANGED — a timed weave (they arrive 28 ticks apart, so they never collide). This is how a carry line crosses a data line. Verified bit-exact in raw Life; a timed weave, not an any-phase crossover (none exists at gadget scale).",
  "Snark reflector · turns a stream 90°":"The Snark — a 52-cell still life that turns a whole stream of gliders 90° and restores itself each pass. The wire that turns a corner.",
  "Duplicator · splits a stream in two":"An 84-cell still life that splits each incoming glider into two — real signal fan-out.",
 };
