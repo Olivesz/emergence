@@ -60,6 +60,8 @@
     <div class="readout" id="readout">gen 0 · 0 cells</div>
   </div>
 
+  <div id="caption" style="font-size:12.5px;color:var(--dim);margin:0 0 10px;line-height:1.5;min-height:18px"></div>
+
   <canvas id="cv" width="1120" height="600"></canvas>
 
   <div class="row">
@@ -185,10 +187,20 @@ function advance(){ cells=step(cells); gen++; }
 function frame(){ if(playing){ acc+=(+document.getElementById("speed").value);
   while(acc>=12){ advance(); acc-=12; } render(); } requestAnimationFrame(frame); }
 
+// ---- per-pattern captions (make the gap legible) ----
+const DESC={
+ "▸ Routed AND gate · gliders via 2 Snarks":"A physically-routed AND gate. Input B is turned 90° through TWO Snark reflectors onto the merge; input A arrives directly. Both present → they fuse into one output glider that escapes on a lane neither input touches. Verified tick-exact in raw Life.",
+ "▸ Routed fan-out · dup + 2 reflectors":"One glider → a duplicator splits it in two → one copy is steered through two Snark reflectors onto a chosen parallel lane. Real fan-out with routing.",
+ "▸ Routed INHIBIT · A AND NOT B":"A routed inhibit gate: A's glider reaches the output unless B's (Snark-routed) glider annihilates it. Output = A AND NOT B.",
+ "Snark reflector · turns a stream 90°":"The Snark — a 52-cell still life that turns a whole stream of gliders 90° and restores itself each pass. The wire that turns a corner.",
+ "Duplicator · splits a stream in two":"An 84-cell still life that splits each incoming glider into two — real signal fan-out.",
+};
+function setCaption(name){ document.getElementById("caption").textContent = DESC[name] || ""; }
+
 // ---- controls ----
 const presetSel=document.getElementById("preset");
 for(const k in PRESETS){ const o=document.createElement("option"); o.value=k; o.textContent=k; presetSel.appendChild(o); }
-presetSel.onchange=()=>setSeed(PRESETS[presetSel.value]());
+presetSel.onchange=()=>{ setSeed(PRESETS[presetSel.value]()); setCaption(presetSel.value); };
 document.getElementById("fit").onclick=fit;
 document.getElementById("play").onclick=function(){ playing=!playing; this.textContent=playing?"⏸ Pause":"▶ Play"; };
 document.getElementById("step").onclick=()=>{ playing=false; document.getElementById("play").textContent="▶ Play"; advance(); render(); };
@@ -203,7 +215,7 @@ cv.addEventListener("mousedown",e=>drag=[e.clientX,e.clientY,camx,camy]);
 window.addEventListener("mouseup",()=>drag=null);
 window.addEventListener("mousemove",e=>{ if(!drag)return; camx=drag[2]-(e.clientX-drag[0])/scale; camy=drag[3]-(e.clientY-drag[1])/scale; render(); });
 
-presetSel.value="▸ Routed AND gate · gliders via 2 Snarks"; setSeed(PRESETS[presetSel.value]()); frame();
+presetSel.value="▸ Routed AND gate · gliders via 2 Snarks"; setSeed(PRESETS[presetSel.value]()); setCaption(presetSel.value); frame();
 </script>
 </body>
 </html>
