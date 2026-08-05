@@ -46,17 +46,42 @@ Because NAND is universal, the **same logic that runs the SAP-1 / SAP-2** could 
 principle stand on these glider gates. It's computation all the way down: a CPU
 made of gates, made of gliders, made of nothing but *"3 to be born, 2 to survive."*
 
+## Routing the signal — a physically-routed gate
+
+Colliding gliders in place is one thing; a *circuit* needs to **turn** and **fan
+out** signals. Both gadgets are real, canonical Life still-lifes, verified
+cell-by-cell in our engine (`python3 gadgets.py` → ALL PASS):
+
+- the **Snark** — a 52-cell reflector that turns a glider **90°** and restores itself,
+- the **duplicator** — an 84-cell still life that **splits one glider into two**.
+
+With those plus the gate reactions, `routed.py` assembles and verifies **actually
+routed** logic in raw B3/S23 — no placement shortcuts:
+
+| Rung | What it is |
+|---|---|
+| 1 | **fan-out with routing** — duplicator → two Snarks → two copies on chosen parallel lanes |
+| 2 | a routed **INHIBIT** (`A AND NOT B`) fed through a Snark, full truth table |
+| 3 | a **fully-routed AND gate** — B turned through *two* Snarks onto the merge, A entering directly, output escaping on a virgin lane — 4-row table **tick-exact** |
+| 4 | a half-adder **stage** begun (dual fan-out + first XOR leg) |
+
+Every row passes only if the non-glider residue equals the catalyst still-lifes
+*exactly*, the surviving gliders match by (direction, lane), and they stay stable
+forever as they fly past every catalyst — plus a **causality** back-cast test
+(hand-placed reactions can be unphysical; routed ones can't be).
+
 ```
-life.py    the Life engine (sparse) + glider, Gosper gun, eater — all verified
-gates.py   four-direction gliders, the annihilation & merge reactions, and the
-           NOT / INHIBIT / AND / NAND gates, each truth-table-checked in raw Life
+life.py     the Life engine (sparse) + glider, Gosper gun, eater — all verified
+gates.py    four-direction gliders, annihilation & merge reactions, and the
+            NOT / INHIBIT / AND / XOR / NAND gates + half/full-adder + 3+2
+gadgets.py  the Snark reflector and the glider duplicator, verified in-engine
+routed.py   physically-routed fan-out, INHIBIT, and a full AND gate — in raw Life
 ```
 
-Interactive visualizer: **[`glider-logic.html`](glider-logic.html)** — watch a
-glider crawl, a gun fire a stream, gliders collide to compute NOT / AND / XOR,
-and — in the **"Add a bit"** scene — two input gliders collide into a **sum**
-glider and a **carry** glider (flip both to 1 and watch the sum lanes go dark as
-the carry lights: binary `1+1 = 10`).
+Interactive visualizers: **[`glider-logic.html`](glider-logic.html)** — NOT / AND /
+XOR and the **"Add a bit"** half-adder (flip both inputs to 1 and watch the sum
+lanes go dark as the carry lights: `1+1 = 10`); and **[`life-viewer.html`](life-viewer.html)** —
+the whole-circuit viewer, defaulting to the **routed AND gate** running in full.
 
 ## Why Wireworld for the CPU, then?
 
