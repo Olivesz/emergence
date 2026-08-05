@@ -10,6 +10,10 @@ and playable in the browser with no build step and no dependencies.
 > **apparent sophistication of the result** — and make that gap legible. Show the
 > rule, then show the miracle.
 
+Act VIII climbs the whole ladder from a one-line rule to a **working CPU**. For the
+guided tour of that ladder — signal → gate → arithmetic → processor, every rung
+verified and linked to a live demo — start at **[the-stack.html](the-stack.html)**.
+
 ## The acts
 
 | Act | System | The "wow" |
