@@ -112,12 +112,14 @@
     <div class="rung"><div class="accent a-violet"></div>
       <div class="num">04</div>
       <div>
-        <h2>Routing hardware <span class="k verified">real still-lifes</span></h2>
+        <h2>Routing hardware → a routed gate <span class="k verified">tick-exact</span></h2>
         <p>To wire gates together you must <b>turn</b> a signal and <b>fan it out</b>. The <b>Snark</b>
-          reflects a glider 90°; the <b>duplicator</b> splits one into two — both verified cell-by-cell
-          in our engine. The actual hardware a physical glider circuit is made of.</p>
+          reflects a glider 90°; the <b>duplicator</b> splits one into two — both verified cell-by-cell.
+          And from them, a <b>physically-routed AND gate</b>: input B steered through <em>two</em>
+          reflectors onto the merge, A entering directly, the output escaping on a lane neither input
+          touches — its whole truth table exact and tick-perfect in the raw rule. Real gliders, routed.</p>
         <div class="links">
-          <a class="chip violet" href="https://claude.ai/code/artifact/11dfaeb8-e17f-4753-bd4b-7da083fb1854">▸ Watch a whole glider circuit run</a>
+          <a class="chip violet" href="https://claude.ai/code/artifact/11dfaeb8-e17f-4753-bd4b-7da083fb1854">▸ Watch the routed AND gate run</a>
         </div>
       </div>
     </div>
