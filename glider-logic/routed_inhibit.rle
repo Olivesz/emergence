@@ -1,0 +1,6 @@
+#N routed_inhibit
+#C Snark-routed data glider + gates.ANN deleter + eater-terminated deleter lane
+x = 206, y = 190, rule = B3/S23
+14b2o3b2o$14b2o2bob3o$18bo4bo$14b4ob2o2bo$14bo2bobobob2o$17bobobobo$18
+b2obobo$22bo2$8b2o$9bo7b2o$9bobo5b2o$10b2o7$20b2o$20bo$21b3o$23bo2$40b
+o$40b3o$43bo$42b2o3$b2o$obo$2bo155$203b2o$203bobo$203bo!

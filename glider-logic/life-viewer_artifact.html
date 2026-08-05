@@ -126,7 +126,29 @@ const SNARK_STREAM=`x = 95, y = 103, rule = B3/S23
 84b2o3b2o$84b2o2bob3o$88bo4bo$84b4ob2o2bo$84bo2bobobob2o$87bobobobo$88b2obobo$92bo$$78b2o$79bo7b2o$79bobo5b2o$80b2o$$$$$$$90b2o$81b2o7bo$80bobo8b3o$82bo10bo$$$$$$$$$$$$$$65b2o$64bobo$66bo$$$$$$$$$$$$$$49b2o$48bobo$50bo$$$$$$$$$$$$$$33b2o$32bobo$34bo$$$$$$$$$$$$$$17b2o$16bobo$18bo$$$$$$$$$$$$$$b2o$obo$2bo!`;
 const DUP_STREAM=`x = 256, y = 233, rule = B3/S23
 obo$b2o$bo$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$90bobo$91b2o$91bo$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$180bobo$181b2o$181bo$$$$$$$$$$$$$$$$$$$$$$$$231b2o$232bo$232bobo$222bo10b2o$220b3o$219bo$219b2o$204b2o48b2o$205bo48b2o$205bob2o$206bo2bo$207b2o$222b2o$222b2o$$$$231bo3b2o$230bobo3bo$229bobo3bo$225b2obobo3bo$225b2obo2b4obo5b2o$229bobo3bobo5bo$225b2ob2o2bo2bobo2b3o$226bobo2b2o3bo3bo$214b2o10bobo$214b2o11bo!`;
+const ROUTED_AND=`x = 125, y = 73, rule = B3/S23
+obo$b2o$bo13$63b2o3b2o$63b2o2bob3o$67bo4bo$63b4ob2o2bo$63bo2bobobob2o$
+66bobobobo$67b2obobo$71bo2$57b2o$58bo7b2o$58bobo5b2o$59b2o7$69b2o$69bo
+$70b3o$72bo8$50b2o$49bobo$51bo9$115bo$113b3o$112bo$112b2o3$120b2ob2o$1
+21bob2o$121bo$113b2o4b3o$113b2o3bo3b2o$118b4o2bo$104b2o15bob2o$103bobo
+12b3o2bo$103bo13bo5bo$102b2o14b5o$120bo!`;
+const ROUTED_INHIBIT=`x = 206, y = 190, rule = B3/S23
+14b2o3b2o$14b2o2bob3o$18bo4bo$14b4ob2o2bo$14bo2bobobob2o$17bobobobo$18
+b2obobo$22bo2$8b2o$9bo7b2o$9bobo5b2o$10b2o7$20b2o$20bo$21b3o$23bo2$40b
+o$40b3o$43bo$42b2o3$b2o$obo$2bo155$203b2o$203bobo$203bo!`;
+const ROUTED_FANOUT=`x = 76, y = 109, rule = B3/S23
+45b2o3b2o$45b2o2bob3o$49bo4bo$45b4ob2o2bo$45bo2bobobob2o$48bobobobo$49
+b2obobo$53bo2$39b2o$40bo7b2o$40bobo5b2o$41b2o7$51b2o$51bo$52b3o$54bo11
+$20bo$18b5o14b2o$17bo5bo13bo$17bo2b3o12bobo$16b2obo15b2o$16bo2b4o$17b2
+o3bo3b2o$19b3o4b2o$19bo$16b2obo$16b2ob2o3$27b2o$28bo$25b3o$25bo7$obo$b
+2o$bo24$51b2o$52bo$52bobo$42bo10b2o$40b3o$39bo$39b2o$24b2o48b2o$25bo48
+b2o$25bob2o$26bo2bo$27b2o$42b2o$42b2o4$51bo3b2o$50bobo3bo$49bobo3bo$45
+b2obobo3bo$45b2obo2b4obo5b2o$49bobo3bobo5bo$45b2ob2o2bo2bobo2b3o$46bob
+o2b2o3bo3bo$34b2o10bobo$34b2o11bo!`;
 const PRESETS={
+  "▸ Routed AND gate · gliders via 2 Snarks":()=>parseRLE(ROUTED_AND),
+  "▸ Routed fan-out · dup + 2 reflectors":()=>parseRLE(ROUTED_FANOUT),
+  "▸ Routed INHIBIT · A AND NOT B":()=>parseRLE(ROUTED_INHIBIT),
   "One Gosper gun":()=>new Set(GOSPER),
   "A stream of guns (×12)":()=>gunField(12,4),
   "Gun grid (×24)":()=>gunField(24,6),
@@ -174,5 +196,5 @@ cv.addEventListener("mousedown",e=>drag=[e.clientX,e.clientY,camx,camy]);
 window.addEventListener("mouseup",()=>drag=null);
 window.addEventListener("mousemove",e=>{ if(!drag)return; camx=drag[2]-(e.clientX-drag[0])/scale; camy=drag[3]-(e.clientY-drag[1])/scale; render(); });
 
-presetSel.value="A stream of guns (×12)"; setSeed(PRESETS[presetSel.value]()); frame();
+presetSel.value="▸ Routed AND gate · gliders via 2 Snarks"; setSeed(PRESETS[presetSel.value]()); frame();
 </script>

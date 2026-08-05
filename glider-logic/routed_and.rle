@@ -1,0 +1,8 @@
+#N routed_and
+#C B routed through two Snarks tick-exactly onto gates.py's AND merge; output escapes on a virgin lane
+x = 125, y = 73, rule = B3/S23
+obo$b2o$bo13$63b2o3b2o$63b2o2bob3o$67bo4bo$63b4ob2o2bo$63bo2bobobob2o$
+66bobobobo$67b2obobo$71bo2$57b2o$58bo7b2o$58bobo5b2o$59b2o7$69b2o$69bo
+$70b3o$72bo8$50b2o$49bobo$51bo9$115bo$113b3o$112bo$112b2o3$120b2ob2o$1
+21bob2o$121bo$113b2o4b3o$113b2o3bo3b2o$118b4o2bo$104b2o15bob2o$103bobo
+12b3o2bo$103bo13bo5bo$102b2o14b5o$120bo!

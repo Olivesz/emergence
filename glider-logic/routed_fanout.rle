@@ -1,0 +1,11 @@
+#N routed_fanout
+#C 1 glider -> duplicator -> 2 SE gliders on chosen parallel lanes via two Snarks
+x = 76, y = 109, rule = B3/S23
+45b2o3b2o$45b2o2bob3o$49bo4bo$45b4ob2o2bo$45bo2bobobob2o$48bobobobo$49
+b2obobo$53bo2$39b2o$40bo7b2o$40bobo5b2o$41b2o7$51b2o$51bo$52b3o$54bo11
+$20bo$18b5o14b2o$17bo5bo13bo$17bo2b3o12bobo$16b2obo15b2o$16bo2b4o$17b2
+o3bo3b2o$19b3o4b2o$19bo$16b2obo$16b2ob2o3$27b2o$28bo$25b3o$25bo7$obo$b
+2o$bo24$51b2o$52bo$52bobo$42bo10b2o$40b3o$39bo$39b2o$24b2o48b2o$25bo48
+b2o$25bob2o$26bo2bo$27b2o$42b2o$42b2o4$51bo3b2o$50bobo3bo$49bobo3bo$45
+b2obobo3bo$45b2obo2b4obo5b2o$49bobo3bobo5bo$45b2ob2o2bo2bobo2b3o$46bob
+o2b2o3bo3bo$34b2o10bobo$34b2o11bo!
