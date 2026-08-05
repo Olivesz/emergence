@@ -12,3 +12,7 @@
 # Python
 __pycache__/
 *.pyc
+
+# Carlini adder — large data (fetched/derived at runtime by carlini_adder.py)
+glider-logic/carlini_adder.mc
+glider-logic/carlini_adder.rle
