@@ -136,81 +136,118 @@ const GOSPER=parseP([
 const DIRG={ SE:GLIDER, SW:mirror(GLIDER,true,false,3,3), NE:mirror(GLIDER,false,true,3,3), NW:mirror(GLIDER,true,true,3,3) };
 function glider(dir,x,y,phase){ return translate(runN(DIRG[dir], ((phase%4)+4)%4), x, y); }
 
-// gate output regions verified in gates.py (A at origin), shifted by the A-anchor.
+// Every reaction below is verified cell-by-cell in gates.py. A scene may have
+// several named OUTPUTS, each read from one or more boxes (OR'd) — a glider
+// entering any box during a cycle latches that output to 1.
+const U=(a,b)=>new Set([...a,...b]);           // union of two cell sets
+const ANN_OFF=[4,-1];                          // SE-data + NW-deleter annihilate (gates.ANN)
 const SCENES = {
   glider: {
     name:"The signal · a glider",
     text:"Five live cells that crawl diagonally forever, keeping their shape and returning to it every 4 ticks. This is the moving 1 we send down a lane — the whole idea of a signal, emergent from the one rule.",
-    cam:[0,0], period:0, inputs:[],
+    cam:[0,0], period:0, inputs:[], outputs:[],
     build:()=> glider("SE",-24,-16,0), cull:true
   },
   gun: {
     name:"The source · Gosper gun",
     text:"A 36-cell machine that returns to itself every 30 ticks and, each cycle, spits out one glider. A signal source — an endless stream of 1s, a clock — with no wire anywhere in sight.",
-    cam:[6,6], period:0, inputs:[],
+    cam:[6,6], period:0, inputs:[], outputs:[],
     build:()=> translate(GOSPER,-14,-14), cull:true
   },
   not: {
     name:"NOT · a collision",
     text:"A carrier glider (always on) heads for the output lane. Turn the input ON: its glider meets the carrier head-on and both annihilate — output 0. Turn it OFF: the carrier sails through — output 1. That's NOT, from one collision.",
-    cam:[6,4], period:64, inputs:[["B","input"]],
-    outRegion:[8,8,12,12],
+    cam:[6,4], period:64, inputs:[["B","input"]], defaultIO:{B:true},
+    outputs:[{name:"NOT B", regions:[[8,8,12,12]]}],
     build:(io)=>{ let s=glider("SE",-3,-3,0);
-                  if(io.B) s=new Set([...s, ...glider("NW",1,-4,0)]); return s; },
-    lampFromRegion:true
+                  if(io.B) s=U(s, glider("NW",1,-4,0)); return s; }
   },
   and: {
     name:"AND · a merge",
-    text:"An SE glider (A) and an SW glider (B) are aimed to meet. Alone, each flies off its own lane. Together they merge into a single new glider heading up-left onto the output lane — a glider appears there only when BOTH inputs are 1. That's AND.",
-    cam:[-3,-1], period:80, inputs:[["A","input A"],["B","input B"]],
-    outRegion:[-12,-11,-6,-5],
+    text:"An SE glider (A) and an SW glider (B) are aimed to meet. Alone, each flies off its own lane. Together they merge into a single new glider heading up-left onto the output lane — a glider appears there only when BOTH are 1. That's AND, and it's the CARRY bit of addition.",
+    cam:[-3,-1], period:80, inputs:[["A","input A"],["B","input B"]], defaultIO:{A:true,B:true},
+    outputs:[{name:"A AND B", regions:[[-12,-11,-6,-5]]}],
     build:(io)=>{ let s=new Set();
-                  if(io.A) s=new Set([...s, ...glider("SE",3,2,0)]);
-                  if(io.B) s=new Set([...s, ...glider("SW",5,6,1)]); return s; },
-    lampFromRegion:true
+                  if(io.A) s=U(s, glider("SE",3,2,0));
+                  if(io.B) s=U(s, glider("SW",5,6,1)); return s; }
+  },
+  xor: {
+    name:"XOR · the sum bit",
+    text:"Two INHIBIT gates back to back. A's glider deletes B's, and B's deletes A's — so a glider survives to an output lane only when EXACTLY ONE input is 1. Both 1? They wipe each other out. That's XOR — the SUM bit of binary addition, built from collisions.",
+    cam:[15,6], period:64, inputs:[["A","input A"],["B","input B"]], defaultIO:{A:true,B:false},
+    outputs:[{name:"A XOR B", regions:[[14,14,18,18],[34,14,38,18]]}],
+    build:(io)=>{ let s=new Set();
+                  if(io.A){ s=U(s,glider("SE",0,0,0)); s=U(s,glider("NW",20+ANN_OFF[0],0+ANN_OFF[1],0)); }
+                  if(io.B){ s=U(s,glider("SE",20,0,0)); s=U(s,glider("NW",0+ANN_OFF[0],0+ANN_OFF[1],0)); }
+                  return s; }
+  },
+  halfadd: {
+    name:"Add a bit · half-adder",
+    text:"The two gates together ARE a 1-bit adder. sum = A XOR B (top), carry = A AND B (below). Watch the gliders: 1+0 lights SUM; 1+1 wipes the sum lanes and lights CARRY — that's binary 1+1 = 10. Chain these across bit positions and you add whole numbers: 3+2 is 011+010, column by column, → 101 = 5.",
+    cam:[11,23], cell:7, period:64, inputs:[["A","bit A"],["B","bit B"]], defaultIO:{A:true,B:true},
+    outputs:[{name:"sum",   regions:[[14,14,18,18],[34,14,38,18]]},
+             {name:"carry", regions:[[-15,32,-11,38]]}],
+    build:(io)=>{ let s=new Set();
+                  if(io.A){ s=U(s,glider("SE",0,0,0)); s=U(s,glider("NW",20+ANN_OFF[0],0+ANN_OFF[1],0)); }
+                  if(io.B){ s=U(s,glider("SE",20,0,0)); s=U(s,glider("NW",0+ANN_OFF[0],0+ANN_OFF[1],0)); }
+                  if(io.A) s=U(s,glider("SE",0,45,0));            // AND (carry) sub-circuit
+                  if(io.B) s=U(s,glider("SW",2,49,1));
+                  return s; }
   }
 };
 
 const cv=document.getElementById("cv"), ctx=cv.getContext("2d");
-const CELL=8;
+let CELL=8;
 let sceneKey="glider", scene=SCENES.glider, cells=new Set(), tick=0, playing=true, raf=null;
-let io={A:true,B:false}, lampLatched=false, lampShown=false, acc=0;
+let io={A:true,B:false}, acc=0;
 
-function regionOccupied(cs){ if(!scene.outRegion) return false; const [x0,y0,x1,y1]=scene.outRegion;
-  for(const k of cs){ const[x,y]=unkey(k); if(x>=x0&&x<=x1&&y>=y0&&y<=y1) return true; } return false; }
-function computeOutput(){            // run the reaction once, headless, for an instant answer
-  if(!scene.outRegion||!scene.period) return false;
-  let c=scene.build(io);
-  for(let i=0;i<scene.period;i++){ c=step(c); if(regionOccupied(c)) return true; }
+function regionsHit(cs, regions){
+  for(const k of cs){ const[x,y]=unkey(k);
+    for(const [x0,y0,x1,y1] of regions){ if(x>=x0&&x<=x1&&y>=y0&&y<=y1) return true; } }
   return false;
 }
-function reset(){ tick=0; lampLatched=false; lampShown=computeOutput(); cells=scene.build(io); render(); updateLamp(); }
-function cullFar(){ const [cx,cy]=scene.cam; const R=80;
+function computeOutputs(){                       // headless: correct answer for each output
+  if(!scene.period) return;
+  for(const o of scene.outputs){
+    let c=scene.build(io), on=false;
+    for(let i=0;i<scene.period;i++){ c=step(c); if(regionsHit(c,o.regions)){ on=true; break; } }
+    o.shown=on; o.latched=false;
+  }
+}
+function reset(){ tick=0; computeOutputs(); cells=scene.build(io); render(); updateLamps(); }
+function cullFar(){ const [cx,cy]=scene.cam; const R=90;
   for(const k of cells){ const[x,y]=unkey(k); if(Math.abs(x-cx)>R||Math.abs(y-cy)>R) cells.delete(k); } }
-function inRegion(){ if(!scene.outRegion) return false; const [x0,y0,x1,y1]=scene.outRegion;
-  for(const k of cells){ const[x,y]=unkey(k); if(x>=x0&&x<=x1&&y>=y0&&y<=y1) return true; } return false; }
 function advance(){
   cells=step(cells); tick++;
   if(scene.cull) cullFar();
-  if(scene.lampFromRegion && inRegion()) lampLatched=true;
-  if(scene.period && tick % scene.period === 0){ lampShown=lampLatched; lampLatched=false; cells=scene.build(io); }
-  updateLamp();
+  for(const o of scene.outputs){ if(regionsHit(cells,o.regions)) o.latched=true; }
+  if(scene.period && tick % scene.period === 0){
+    for(const o of scene.outputs){ o.shown=o.latched; o.latched=false; }
+    cells=scene.build(io);
+  }
+  updateLamps();
 }
 function w2s(x,y){ const [cx,cy]=scene.cam; return [ cv.width/2 + (x-cx)*CELL, cv.height/2 + (y-cy)*CELL ]; }
 function render(){
   ctx.fillStyle="rgba(5,7,11,0.30)"; ctx.fillRect(0,0,cv.width,cv.height);
-  if(scene.outRegion){ const [x0,y0,x1,y1]=scene.outRegion;
+  ctx.strokeStyle="rgba(185,140,255,0.5)"; ctx.lineWidth=1.5;
+  for(const o of scene.outputs) for(const [x0,y0,x1,y1] of o.regions){
     const [sx0,sy0]=w2s(x0-0.5,y0-0.5); const [sx1,sy1]=w2s(x1+0.5,y1+0.5);
-    ctx.strokeStyle="rgba(185,140,255,0.55)"; ctx.lineWidth=1.5; ctx.strokeRect(sx0,sy0,sx1-sx0,sy1-sy0); }
+    ctx.strokeRect(sx0,sy0,sx1-sx0,sy1-sy0);
+  }
   ctx.shadowColor="#3fe9ff"; ctx.shadowBlur=7; ctx.fillStyle="#3fe9ff";
   for(const k of cells){ const [x,y]=unkey(k); const [sx,sy]=w2s(x,y);
     if(sx<-CELL||sy<-CELL||sx>cv.width||sy>cv.height) continue; ctx.fillRect(sx,sy,CELL-1,CELL-1); }
   ctx.shadowBlur=0;
   document.getElementById("clk").textContent="tick "+tick;
 }
-function updateLamp(){ const lamp=document.getElementById("lamp"), ov=document.getElementById("outval");
-  if(!lamp) return; const on=scene.period?lampShown:false;
-  lamp.classList.toggle("on",on); ov.classList.toggle("on",on); ov.textContent=on?"1":"0"; }
+function updateLamps(){
+  for(let i=0;i<scene.outputs.length;i++){
+    const lamp=document.getElementById("lamp"+i), ov=document.getElementById("outval"+i);
+    if(!lamp) continue; const on=!!scene.outputs[i].shown;
+    lamp.classList.toggle("on",on); ov.classList.toggle("on",on); ov.textContent=on?"1":"0";
+  }
+}
 function frame(){ if(playing){ acc+=(+document.getElementById("speed").value);
     while(acc>=10){ advance(); acc-=10; } } render(); raf=requestAnimationFrame(frame); }
 
@@ -228,20 +265,21 @@ function buildIO(){
     sw.onclick=()=>{ io[id]=!io[id]; sw.className="sw"+(io[id]?" on":""); sw.textContent=io[id]?"1":"0"; reset(); };
     row.appendChild(nm); row.appendChild(sw); io_.appendChild(row);
   }
-  const out=document.createElement("div"); out.className="out";
-  const l=document.createElement("span"); l.className="nm"; l.textContent="output";
-  const wrap=document.createElement("div"); wrap.style.display="flex"; wrap.style.alignItems="center"; wrap.style.gap="10px";
-  const ov=document.createElement("span"); ov.className="outval"; ov.id="outval"; ov.textContent="0";
-  const lamp=document.createElement("span"); lamp.className="lamp"; lamp.id="lamp";
-  wrap.appendChild(ov); wrap.appendChild(lamp); out.appendChild(l); out.appendChild(wrap); io_.appendChild(out);
+  scene.outputs.forEach((o,i)=>{
+    const out=document.createElement("div"); out.className="out";
+    const l=document.createElement("span"); l.className="nm"; l.textContent=o.name;
+    const wrap=document.createElement("div"); wrap.style.display="flex"; wrap.style.alignItems="center"; wrap.style.gap="10px";
+    const ov=document.createElement("span"); ov.className="outval"; ov.id="outval"+i; ov.textContent="0";
+    const lamp=document.createElement("span"); lamp.className="lamp"; lamp.id="lamp"+i;
+    wrap.appendChild(ov); wrap.appendChild(lamp); out.appendChild(l); out.appendChild(wrap); io_.appendChild(out);
+  });
 }
 function selectScene(k){
-  sceneKey=k; scene=SCENES[k];
+  sceneKey=k; scene=SCENES[k]; CELL=scene.cell||8;
   document.querySelectorAll(".tab").forEach((b,i)=>b.classList.toggle("on", Object.keys(SCENES)[i]===k));
   document.getElementById("explainText").textContent=scene.text;
   document.querySelector("#explain h3").textContent=scene.name;
-  if(k==="not") io={A:true,B:true};
-  if(k==="and") io={A:true,B:true};
+  if(scene.defaultIO) io=Object.assign({A:true,B:false}, scene.defaultIO);
   ctx.fillStyle="#05070b"; ctx.fillRect(0,0,cv.width,cv.height);
   buildIO(); reset();
 }
