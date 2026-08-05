@@ -108,8 +108,6 @@ class SAP2:
         self.A=b8(); self.B=b8(); self.MAR=b8(); self.PC=b8(); self.IR=b8()
         self.MDR=b8(); self.SP=b8(self.STACK_TOP)
         self.Zf=raw(); self.Cf=raw(); self.Sf=raw()
-        self.T = [raw(1 if i==0 else 0) for i in range(8)]     # step counter 0..7 (one-hot seed T0)
-        self.Tbits = None
         # behavioral-memory interface nets (inputs to the netlist)
         self.ram_out = c.bus(8)
         self.in_nets = c.bus(8)
