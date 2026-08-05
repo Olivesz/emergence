@@ -129,10 +129,16 @@ const GOSPER=parseASCII([
   "...........O...O....................",
   "............OO......................"]);
 function gunField(n,cols){ let f=new Set(); for(let i=0;i<n;i++) f=new Set([...f,...translate(GOSPER,(i%cols)*55,(Math.floor(i/cols))*48)]); return f; }
+const SNARK_STREAM=`x = 95, y = 103, rule = B3/S23
+84b2o3b2o$84b2o2bob3o$88bo4bo$84b4ob2o2bo$84bo2bobobob2o$87bobobobo$88b2obobo$92bo$$78b2o$79bo7b2o$79bobo5b2o$80b2o$$$$$$$90b2o$81b2o7bo$80bobo8b3o$82bo10bo$$$$$$$$$$$$$$65b2o$64bobo$66bo$$$$$$$$$$$$$$49b2o$48bobo$50bo$$$$$$$$$$$$$$33b2o$32bobo$34bo$$$$$$$$$$$$$$17b2o$16bobo$18bo$$$$$$$$$$$$$$b2o$obo$2bo!`;
+const DUP_STREAM=`x = 256, y = 233, rule = B3/S23
+obo$b2o$bo$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$90bobo$91b2o$91bo$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$180bobo$181b2o$181bo$$$$$$$$$$$$$$$$$$$$$$$$231b2o$232bo$232bobo$222bo10b2o$220b3o$219bo$219b2o$204b2o48b2o$205bo48b2o$205bob2o$206bo2bo$207b2o$222b2o$222b2o$$$$231bo3b2o$230bobo3bo$229bobo3bo$225b2obobo3bo$225b2obo2b4obo5b2o$229bobo3bobo5bo$225b2ob2o2bo2bobo2b3o$226bobo2b2o3bo3bo$214b2o10bobo$214b2o11bo!`;
 const PRESETS={
   "One Gosper gun":()=>new Set(GOSPER),
   "A stream of guns (×12)":()=>gunField(12,4),
   "Gun grid (×24)":()=>gunField(24,6),
+  "Snark reflector · turns a stream 90°":()=>parseRLE(SNARK_STREAM),
+  "Duplicator · splits a stream in two":()=>parseRLE(DUP_STREAM),
 };
 
 // ---- view state ----
