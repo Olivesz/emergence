@@ -101,6 +101,7 @@ function parseRLE(txt){ // minimal RLE: header line 'x = .., y = ..' then body w
   const lines=txt.split("\n").filter(l=>!l.startsWith("#"));
   let body=lines.join("\n"); const hdr=body.indexOf("\n", body.indexOf("x"));
   if(/x\s*=/.test(lines[0])||/x\s*=/.test(body.split("\n")[0])) body=body.substring(body.indexOf("\n")+1);
+  body=body.replace(/\s+/g,""); // strip newlines: a wrapped 'N' + '$' must stay one token
   for(const ch of body){
     if(ch>="0"&&ch<="9"){ num+=ch; continue; }
     const n=num?parseInt(num):1; num="";
@@ -678,8 +679,19 @@ o$74b2o10bobo15b2o48b2o$74b2o11bo17bo48b2o$105bob2o$106bo2bo$107b2o$12
 2b2o$122b2o4$131bo3b2o$130bobo3bo$129bobo3bo$125b2obobo3bo$125b2obo2b4
 obo5b2o$129bobo3bobo5bo$125b2ob2o2bo2bobo2b3o$126bobo2b2o3bo3bo$114b2o
 10bobo$114b2o11bo!`;
+const LATCH=`x = 213, y = 213, rule = B3/S23
+86b2o3b2o$86b2o2bob3o$90bo4bo$86b4ob2o2bo$86bo2bobobob2o$89bobobobo$90
+b2obobo$94bo2$80b2o$81bo7b2o$81bobo5b2o$82b2o7$92b2o$92bo$93b3o$95bo68
+$4bo$2b5o14b2o$bo5bo13bo$bo2b3o12bobo$2obo15b2o$o2b4o$b2o3bo3b2o$3b3o4
+b2o$3bo$2obo$2ob2o3$11b2o$12bo$9b3o$9bo193bo$201b3o$200bo$200b2o$28b3o
+$28bo$29bo178b2ob2o$209bob2o$209bo$201b2o4b3o$201b2o3bo3b2o$206b4o2bo$
+192b2o15bob2o$191bobo12b3o2bo$191bo13bo5bo$190b2o14b5o$208bo68$117bo$1
+17b3o$120bo$119b2o7$129b2o$122b2o5bobo$122b2o7bo$131b2o2$118bo$117bobo
+b2o$117bobobobo$116b2obobobo2bo$117bo2b2ob4o$117bo4bo$118b3obo2b2o$120
+b2o3b2o!`;
 const PRESETS={
   "▸ Routed XOR (half-adder SUM) · A=1 B=0 → sum 1":()=>parseRLE(ROUTED_XOR),
+  "▸ Glider memory · a bit held forever (4-Snark loop)":()=>parseRLE(LATCH),
   "▸ Physical fan-out · 1 glider → 4 via chained dups":()=>parseRLE(PHYS_FANOUT),
   "▸ Routed AND gate · gliders via 2 Snarks":()=>parseRLE(ROUTED_AND),
   "▸ Routed fan-out · dup + 2 reflectors":()=>parseRLE(ROUTED_FANOUT),
@@ -719,6 +731,7 @@ function frame(){ if(playing){ acc+=(+document.getElementById("speed").value);
 // ---- per-pattern captions (make the gap legible) ----
 const DESC={
  "▸ Routed XOR (half-adder SUM) · A=1 B=0 → sum 1":"The physically-routed XOR — the SUM output of a half-adder — computing in the bare rule. A enters a duplicator (top-left); B (absent here) would enter a second. A's data glider sails down its lane while B's deleter (absent) can't stop it, so the SUM glider ESCAPES = 1. With BOTH inputs the two deleters annihilate both data gliders (sum 0); with either alone, that one survives (sum 1) — a real XOR. Paired with the routed AND (carry), this IS a half-adder; two of them make the full adder that computes 10-bit addition, every bit in raw Life. Verified: exact survivors, every catalyst restored.",
+ "▸ Glider memory · a bit held forever (4-Snark loop)":"A 1-BIT MEMORY made of gliders. One glider circulates forever around a diamond of FOUR Snark reflectors — each turns it 90° and restores itself, so the bit (a present glider = 1) never decays. This is EXACTLY periodic: the whole pattern returns to its start every 1528 ticks (run(state,1528)==state, proven), so it holds the bit indefinitely with zero drift. This is the first step past combinational logic — the sequential/stateful element a processor needs. (A duplicator can tap a non-destructive read out of the loop; verified for many passes.)",
  "▸ Physical fan-out · 1 glider → 4 via chained dups":"One glider enters (top-left) and a CHAIN of duplicators fans it into FOUR physical copies — with no routing hardware at all. A duplicator's SE output lands exactly on the next duplicator's input lane, so they chain directly; N duplicators give N+1 copies on distinct lanes, every catalyst restored. This is the fan-out tree a fully-physical adder needs — one input bit driving many gates.",
  "▸ Routed AND gate · gliders via 2 Snarks":"A physically-routed AND gate. Input B is turned 90° through TWO Snark reflectors onto the merge; input A arrives directly. Both present → they fuse into one output glider that escapes on a lane neither input touches. Verified tick-exact in raw Life.",
  "▸ Routed fan-out · dup + 2 reflectors":"One glider → a duplicator splits it in two → one copy is steered through two Snark reflectors onto a chosen parallel lane. Real fan-out with routing.",
