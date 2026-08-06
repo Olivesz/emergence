@@ -143,11 +143,14 @@
 
   <div class="horizon">
     <h2>06 · The horizon <span class="k frontier" style="margin-left:8px">the honest frontier</span></h2>
-    <p>A CPU built <em>entirely</em> of physical gliders — routing every wire with reflectors and
-      crossovers, holding state in feedback loops with perfect timing — is a genuine <b>multi-year</b>
-      undertaking (the "Life computer"). The gates and the routing hardware are real and verified;
-      the fully-routed machine is the mountain still being climbed. Nothing here is inflated — the CPU
-      that works today is the Wireworld one; the glider version is honest, real, and reaching upward.</p>
+    <p>A CPU built <em>entirely</em> of physical gliders is a genuine <b>multi-year</b> undertaking
+      (the "Life computer") — but the pieces keep falling. Combinational logic is done: routed AND,
+      routed XOR, a half-adder, a full adder, 10-bit addition. The routing kit is done: fan-out by
+      chained duplicators, Snark turns, a lane-shifter, a crossover. And the first <b>sequential</b>
+      piece now exists too — a <b>1-bit memory</b>, one glider circulating a 4-Snark loop
+      <em>forever</em> (exactly periodic, proven). What remains is the mountain of <b>timing-closure at
+      scale</b>: thousands of these wired together in lockstep. Nothing here is inflated — the CPU that
+      runs today is the Wireworld one; the glider machine is honest, real, and climbing.</p>
   </div>
 
   <p class="foot">Every gate, adder, reflector, and CPU cell in this ladder is verified by running the
