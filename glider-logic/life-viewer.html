@@ -659,7 +659,22 @@ bo376b3o117b2o2bo2bobo7bo$300b2o5bob2o15bo496bo2bo2b2o7bo4bo4b2o$310b
 $1322bobo31b2o$1322b2o$729bo593bo$727bobo80bo$728b2o79b2o$809bobo2$
 1316bo$1314b2o$736bo578b2o38b3o$737bo616bo3bo$735b3o79b2o534bo5bo498b
 o$816b2o535bo5bo498b2o$818bo537bo500bobo$1248b2o104bo3bo!`;
+const ROUTED_XOR=`x = 520, y = 559, rule = B3/S23
+obo$b2o$bo24$51b2o$52bo$52bobo$42bo10b2o$40b3o$39bo$39b2o$24b2o48b2o$2
+5bo48b2o$25bob2o$26bo2bo$27b2o$42b2o$42b2o4$51bo3b2o$50bobo3bo$49bobo3
+bo$45b2obobo3bo$45b2obo2b4obo5b2o$49bobo3bobo5bo$45b2ob2o2bo2bobo2b3o$
+46bobo2b2o3bo3bo$34b2o10bobo$34b2o11bo34$102b2o$103bo$103bobo$104b2o11
+8$201b2o$202bo$202bobo$192bo10b2o$190b3o$189bo$189b2o$174b2o48b2o$175b
+o48b2o$175bob2o$176bo2bo$177b2o$192b2o$192b2o4$201bo3b2o$200bobo3bo$19
+9bobo3bo$195b2obobo3bo$195b2obo2b4obo5b2o$199bobo3bobo5bo$195b2ob2o2bo
+2bobo2b3o$196bobo2b2o3bo3bo$184b2o10bobo$184b2o11bo32$250b2o$251bo$251
+bobo$252b2o237$443bobo$444b2o$444bo25$495b2o$496bo$496bobo$486bo10b2o$
+484b3o$483bo$483b2o$468b2o48b2o$469bo48b2o$469bob2o$470bo2bo$471b2o$48
+6b2o$486b2o4$495bo3b2o$494bobo3bo$493bobo3bo$489b2obobo3bo$489b2obo2b4
+obo5b2o$493bobo3bobo5bo$489b2ob2o2bo2bobo2b3o$490bobo2b2o3bo3bo$478b2o
+10bobo$478b2o11bo!`;
 const PRESETS={
+  "▸ Routed XOR (half-adder SUM) · A=1 B=0 → sum 1":()=>parseRLE(ROUTED_XOR),
   "▸ Routed AND gate · gliders via 2 Snarks":()=>parseRLE(ROUTED_AND),
   "▸ Routed fan-out · dup + 2 reflectors":()=>parseRLE(ROUTED_FANOUT),
   "▸ Routed INHIBIT · A AND NOT B":()=>parseRLE(ROUTED_INHIBIT),
@@ -697,6 +712,7 @@ function frame(){ if(playing){ acc+=(+document.getElementById("speed").value);
 
 // ---- per-pattern captions (make the gap legible) ----
 const DESC={
+ "▸ Routed XOR (half-adder SUM) · A=1 B=0 → sum 1":"The physically-routed XOR — the SUM output of a half-adder — computing in the bare rule. A enters a duplicator (top-left); B (absent here) would enter a second. A's data glider sails down its lane while B's deleter (absent) can't stop it, so the SUM glider ESCAPES = 1. With BOTH inputs the two deleters annihilate both data gliders (sum 0); with either alone, that one survives (sum 1) — a real XOR. Paired with the routed AND (carry), this IS a half-adder; two of them make the full adder that computes 10-bit addition, every bit in raw Life. Verified: exact survivors, every catalyst restored.",
  "▸ Routed AND gate · gliders via 2 Snarks":"A physically-routed AND gate. Input B is turned 90° through TWO Snark reflectors onto the merge; input A arrives directly. Both present → they fuse into one output glider that escapes on a lane neither input touches. Verified tick-exact in raw Life.",
  "▸ Routed fan-out · dup + 2 reflectors":"One glider → a duplicator splits it in two → one copy is steered through two Snark reflectors onto a chosen parallel lane. Real fan-out with routing.",
  "▸ Routed INHIBIT · A AND NOT B":"A routed inhibit gate: A's glider reaches the output unless B's (Snark-routed) glider annihilates it. Output = A AND NOT B.",
@@ -726,7 +742,7 @@ cv.addEventListener("mousedown",e=>drag=[e.clientX,e.clientY,camx,camy]);
 window.addEventListener("mouseup",()=>drag=null);
 window.addEventListener("mousemove",e=>{ if(!drag)return; camx=drag[2]-(e.clientX-drag[0])/scale; camy=drag[3]-(e.clientY-drag[1])/scale; render(); });
 
-presetSel.value="▸ Routed AND gate · gliders via 2 Snarks"; setSeed(PRESETS[presetSel.value]()); setCaption(presetSel.value); frame();
+presetSel.value="▸ Routed XOR (half-adder SUM) · A=1 B=0 → sum 1"; setSeed(PRESETS[presetSel.value]()); setCaption(presetSel.value); frame();
 </script>
 </body>
 </html>

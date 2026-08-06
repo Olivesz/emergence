@@ -63,7 +63,9 @@ routed** logic in raw B3/S23 — no placement shortcuts:
 | 1 | **fan-out with routing** — duplicator → two Snarks → two copies on chosen parallel lanes |
 | 2 | a routed **INHIBIT** (`A AND NOT B`) fed through a Snark, full truth table |
 | 3 | a **fully-routed AND gate** — B turned through *two* Snarks onto the merge, A entering directly, output escaping on a virgin lane — 4-row table **tick-exact** |
-| 4 | a half-adder **stage** begun (dual fan-out + first XOR leg) |
+| 4 | a **fully-routed XOR** (= the half-adder SUM) — leg-2 decoupled onto its own right-side duplicator so the deleter is born beside `b_data`, tuned to the exact clean annihilation offset, with its own guard eater; 4 rows exact (`ha_xor.py`) |
+| 5 | a complete **half-adder** — routed XOR (sum) + routed AND (carry) in one field, shared inputs; SUM=A^B, CARRY=A&B, exact (`ha_full.py`) |
+| 6 | a **full adder** (two half-adders + carry merge) and a **ripple adder** — 8/8 rows, and 6+5=11, 511+1=512, 682+341=1023, every bit run through the routed cell in the raw rule (`ha_adder.py`) |
 
 Every row passes only if the non-glider residue equals the catalyst still-lifes
 *exactly*, the surviving gliders match by (direction, lane), and they stay stable
