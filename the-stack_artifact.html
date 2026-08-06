@@ -92,12 +92,16 @@
     <div class="rung"><div class="accent a-amber"></div>
       <div class="num">03</div>
       <div>
-        <h2>Arithmetic <span class="k verified">3 + 2 = 5, bit by bit</span></h2>
-        <p>XOR beside AND is a <b>half-adder</b>; two of those make a <b>full-adder</b>; rippling
-          them adds whole numbers. Flip both inputs to 1 and the sum lanes go dark as the carry
-          lights — binary <b>1 + 1 = 10</b> — every bit checked against the bare rule.</p>
+        <h2>Arithmetic <span class="k verified">6 + 5 = 11, verified</span></h2>
+        <p>XOR beside AND is a <b>half-adder</b>; two make a <b>full-adder</b>; rippling them adds
+          whole numbers. Our own gliders compute <b>3 + 2 = 5</b> bit by bit — and the <em>real</em>
+          thing exists at scale: we parsed Nicholas Carlini's <b>137,712-cell ripple-carry glider
+          adder</b>, ran it 2²⁰ generations on a hashlife cross-checked against our engine, and
+          decoded its output streams — <b>6 + 5 = 11</b>, entirely in gliders. A live slice of it
+          runs in the viewer.</p>
         <div class="links">
           <a class="chip amber" href="https://claude.ai/code/artifact/bbdca1f3-11a8-496f-9552-aad32795a14c">▸ "Add a bit" — a half-adder in gliders</a>
+          <a class="chip amber" href="https://claude.ai/code/artifact/11dfaeb8-e17f-4753-bd4b-7da083fb1854">▸ Watch a slice of the real adder</a>
         </div>
       </div>
     </div>
