@@ -9,12 +9,9 @@ from life import run
 from gadgets import split_gliders, glider_dir, glider_lane
 from routed import build_variants, bbox_gap
 
-t0 = time.time()
 V = build_variants()
 v1 = V['snark_m0r1']   # SE -> SW
 v2 = V['snark_m1r0']   # SW -> SE
-print(f"v1 {v1.din}->{v1.dout} (lin {v1.lin} lout {v1.lout}); "
-      f"v2 {v2.din}->{v2.dout} (lin {v2.lin} lout {v2.lout})")
 
 
 def build_shift(L_in, L_out, dx1=0):
@@ -48,11 +45,15 @@ def verify(L_in, L_out):
     return False, None, None, None
 
 
-# route a fanned copy (SE on lane -47) onto a duplicator's input lane (-1),
-# and onto the routed-AND's A entry lane (40), as concrete targets.
-for (L_in, L_out, label) in [(-47, -1, "dup input"), (-47, 40, "AND A-entry"),
-                             (-45, -1, "dup input (other copy)")]:
-    ok, dx1, p1, p2 = verify(L_in, L_out)
-    print(f"SE lane {L_in} -> SE lane {L_out} [{label}]: "
-          + (f"OK (Snarks @ {p1},{p2})" if ok else "no clean placement found"))
-print("elapsed", round(time.time() - t0, 1), "s")
+if __name__ == "__main__":
+    t0 = time.time()
+    print(f"v1 {v1.din}->{v1.dout} (lin {v1.lin} lout {v1.lout}); "
+          f"v2 {v2.din}->{v2.dout} (lin {v2.lin} lout {v2.lout})")
+    # route a fanned copy (SE on lane -47) onto a duplicator's input lane (-1),
+    # and onto the routed-AND's A entry lane (40), as concrete targets.
+    for (L_in, L_out, label) in [(-47, -1, "dup input"), (-47, 40, "AND A-entry"),
+                                 (-45, -1, "dup input (other copy)")]:
+        ok, dx1, p1, p2 = verify(L_in, L_out)
+        print(f"SE lane {L_in} -> SE lane {L_out} [{label}]: "
+              + (f"OK (Snarks @ {p1},{p2})" if ok else "no clean placement found"))
+    print("elapsed", round(time.time() - t0, 1), "s")

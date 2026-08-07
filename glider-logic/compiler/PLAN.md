@@ -31,6 +31,33 @@ Routing = single-glider geometry + timing only.
 7. **emit** — stamp all tiles → one Life field; run it; verify the truth table in the raw rule.
 8. **scale** — compile the ripple adder; watch `5+6` compute in real gliders.
 
+## Where we are (verified) and the two walls we've characterized
+**Proven in the bare rule:** the router (stage 1), the reactions (AND, INHIBIT/ANN),
+fully-routed INHIBIT + AND gates (`../routed.py` RUNGs 2–3), **gate→gate composition**
+(`compose.py`: route one gate's output into another's input — a routed 3-input AND),
+plus fan-out (`../physical_fanout.py`), lane-shift (`../lane_shift.py`), and 1-bit
+glider memory (`../latch_dev.py`). Emit works (`compiled_and.rle`).
+
+**Wall #1 — parity (hand-building).** Reaction geometry fixes a gate's two output
+rails to *opposite* lane parity; reflectors conserve parity, so hand-routing can't
+align them. *Escaped by the compiler:* it places each gate freely, so it can put both
+data inputs on same-parity lanes. (`../test_merge_route.py`.)
+
+**Wall #2 — fan-in / OR (the current frontier).** A reflector that emits onto a lane
+also *obstructs* that lane: to merge two mutually-exclusive gliders onto one wire, the
+upstream leg's glider must fly past the downstream leg's exit-Snark — and it is
+destroyed every time (`compiler/merge.py`: **340/340** placements obstructed).
+Direction doesn't help; whichever reflector is upstream gets traversed. Merging onto a
+*virgin* lane works only for AND (needs BOTH inputs); OR needs EITHER alone, so there's
+no partner glider to react with. **Fan-in therefore needs a dedicated OR-gadget** (a
+tuned multi-still-life reaction), which is the next hard rung — the same conclusion
+every serious Life-computer builder reaches. Until we have one, the compiler composes
+freely in the {AND, INHIBIT} **fan-out-only** fragment and stops at the first OR.
+
+Consequence for the adder: the half-adder SUM (XOR = leg1 OR leg2) and the ripple
+CARRY (c1 OR c2) are both fan-ins, so a *composable, single-line* full adder is
+gated on the OR-gadget — not on parity, and not on routing.
+
 ## Honesty
 Every stage is verified in the bare rule (catalysts restored, exact survivors). We
 report the wall the moment we hit one. "See how far we can get."
