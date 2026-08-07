@@ -155,9 +155,16 @@
       routed XOR, a half-adder, a full adder, 10-bit addition. The routing kit is done: fan-out by
       chained duplicators, Snark turns, a lane-shifter, a crossover. And the first <b>sequential</b>
       piece now exists too — a <b>1-bit memory</b>, one glider circulating a 4-Snark loop
-      <em>forever</em> (exactly periodic, proven). What remains is the mountain of <b>timing-closure at
-      scale</b>: thousands of these wired together in lockstep. Nothing here is inflated — the CPU that
-      runs today is the Wireworld one; the glider machine is honest, real, and climbing.</p>
+      <em>forever</em> (exactly periodic, proven). And a <b>compiler</b> has begun: it routes one
+      gate's output straight into another's input (proven composition), which is what hand-building
+      couldn't do. Chasing it turned up a real wall and its way around — a reflector that emits onto a
+      lane also <em>blocks</em> that lane, so two gliders can't be merged onto one wire by mirrors
+      (checked: 340 placements, 0 clean); but <em>fan-in doesn't need a mirror</em> —
+      <code>OR = NOT(AND(NOT a, NOT b))</code> rebuilds it from the exact reactions already verified,
+      so the whole adder lives in the proven fragment. What remains is the mountain of
+      <b>timing-closure at scale</b>: thousands of these wired together in lockstep — effort, no longer
+      a wall. Nothing here is inflated — the CPU that runs today is the Wireworld one; the glider
+      machine is honest, real, and climbing.</p>
   </div>
 
   <p class="foot">Every gate, adder, reflector, and CPU cell in this ladder is verified by running the
