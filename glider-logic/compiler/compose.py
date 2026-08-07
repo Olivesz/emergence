@@ -77,3 +77,11 @@ for (A, B, C) in [(1, 1, 1), (1, 1, 0), (1, 0, 1), (0, 1, 1), (0, 0, 0)]:
 print("\nGATE COMPOSITION (routed a&b&c):", "PASS" if allok else "PARTIAL",
       f"({round(time.time()-t0,1)}s)", flush=True)
 
+# ---- EMIT the compiled circuit (a=b=c=1) as a standalone field to watch it run ----
+from routed import to_rle
+field = and_inputs(0, 0, 1, 1) | rcats | c_launch
+here = os.path.dirname(os.path.abspath(__file__))
+open(os.path.join(here, "compiled_and.rle"), "w").write(to_rle(field))
+print(f"emitted compiled_and.rle: {len(field)} cells, bbox {bbox(field)}  "
+      f"(gate1 AND @origin -> routed -> gate2 AND -> a&b&c)", flush=True)
+

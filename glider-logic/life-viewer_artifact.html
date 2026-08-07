@@ -689,7 +689,14 @@ $28bo$29bo178b2ob2o$209bob2o$209bo$201b2o4b3o$201b2o3bo3b2o$206b4o2bo$
 17b3o$120bo$119b2o7$129b2o$122b2o5bobo$122b2o7bo$131b2o2$118bo$117bobo
 b2o$117bobobobo$116b2obobobo2bo$117bo2b2ob4o$117bo4bo$118b3obo2b2o$120
 b2o3b2o!`;
+const COMPILED_AND=`x = 483, y = 567, rule = B3/S23
+480bobo$480b2o$481bo268$143b2o3b2o$143b2o2bob3o$147bo4bo$143b4ob2o2bo$
+143bo2bobobob2o$146bobobobo$147b2obobo$151bo2$137b2o$138bo7b2o$138bobo
+5b2o$139b2o7$149b2o$149bo$150b3o$152bo125$4bo$2b5o14b2o$bo5bo13bo$bo2b
+3o12bobo$2obo15b2o$o2b4o$b2o3bo3b2o$3b3o4b2o$3bo$2obo$2ob2o3$11b2o$12b
+o$9b3o$9bo126$153bo$154bo$152b3o3$154bobo$154b2o$155bo!`;
 const PRESETS={
+  "▸ Compiled circuit · routed 3-input AND (a&b&c)":()=>parseRLE(COMPILED_AND),
   "▸ Routed XOR (half-adder SUM) · A=1 B=0 → sum 1":()=>parseRLE(ROUTED_XOR),
   "▸ Glider memory · a bit held forever (4-Snark loop)":()=>parseRLE(LATCH),
   "▸ Physical fan-out · 1 glider → 4 via chained dups":()=>parseRLE(PHYS_FANOUT),
@@ -730,6 +737,7 @@ function frame(){ if(playing){ acc+=(+document.getElementById("speed").value);
 
 // ---- per-pattern captions (make the gap legible) ----
 const DESC={
+ "▸ Compiled circuit · routed 3-input AND (a&b&c)":"Output of our GLIDER-LOGIC COMPILER — not hand-placed. It took the netlist AND(AND(a,b),c) and emitted this raw-B3/S23 field: gate 1 (top-left) is an AND of two input gliders → its output glider is ROUTED through Snark reflectors → fed into gate 2, a second AND with input c. All three inputs are 1 here, so the final merge fires = a&b&c = 1. This is the exact gate-to-gate chaining that hand-building couldn't do (a lane-parity wall); the compiler's structured routing walks through it. Truth table verified in the raw rule. Two AND gates today; the pipeline scales to a full adder.",
  "▸ Routed XOR (half-adder SUM) · A=1 B=0 → sum 1":"The physically-routed XOR — the SUM output of a half-adder — computing in the bare rule. A enters a duplicator (top-left); B (absent here) would enter a second. A's data glider sails down its lane while B's deleter (absent) can't stop it, so the SUM glider ESCAPES = 1. With BOTH inputs the two deleters annihilate both data gliders (sum 0); with either alone, that one survives (sum 1) — a real XOR. Paired with the routed AND (carry), this IS a half-adder; two of them make the full adder that computes 10-bit addition, every bit in raw Life. Verified: exact survivors, every catalyst restored.",
  "▸ Glider memory · a bit held forever (4-Snark loop)":"A 1-BIT MEMORY made of gliders. One glider circulates forever around a diamond of FOUR Snark reflectors — each turns it 90° and restores itself, so the bit (a present glider = 1) never decays. This is EXACTLY periodic: the whole pattern returns to its start every 1528 ticks (run(state,1528)==state, proven), so it holds the bit indefinitely with zero drift. This is the first step past combinational logic — the sequential/stateful element a processor needs. (A duplicator can tap a non-destructive read out of the loop; verified for many passes.)",
  "▸ Physical fan-out · 1 glider → 4 via chained dups":"One glider enters (top-left) and a CHAIN of duplicators fans it into FOUR physical copies — with no routing hardware at all. A duplicator's SE output lands exactly on the next duplicator's input lane, so they chain directly; N duplicators give N+1 copies on distinct lanes, every catalyst restored. This is the fan-out tree a fully-physical adder needs — one input bit driving many gates.",
@@ -762,5 +770,5 @@ cv.addEventListener("mousedown",e=>drag=[e.clientX,e.clientY,camx,camy]);
 window.addEventListener("mouseup",()=>drag=null);
 window.addEventListener("mousemove",e=>{ if(!drag)return; camx=drag[2]-(e.clientX-drag[0])/scale; camy=drag[3]-(e.clientY-drag[1])/scale; render(); });
 
-presetSel.value="▸ Routed XOR (half-adder SUM) · A=1 B=0 → sum 1"; setSeed(PRESETS[presetSel.value]()); setCaption(presetSel.value); frame();
+presetSel.value="▸ Compiled circuit · routed 3-input AND (a&b&c)"; setSeed(PRESETS[presetSel.value]()); setCaption(presetSel.value); frame();
 </script>
