@@ -43,20 +43,26 @@ rails to *opposite* lane parity; reflectors conserve parity, so hand-routing can
 align them. *Escaped by the compiler:* it places each gate freely, so it can put both
 data inputs on same-parity lanes. (`../test_merge_route.py`.)
 
-**Wall #2 — fan-in / OR (the current frontier).** A reflector that emits onto a lane
+**Wall #2 — fan-in by reflector is impossible.** A reflector that emits onto a lane
 also *obstructs* that lane: to merge two mutually-exclusive gliders onto one wire, the
 upstream leg's glider must fly past the downstream leg's exit-Snark — and it is
 destroyed every time (`compiler/merge.py`: **340/340** placements obstructed).
 Direction doesn't help; whichever reflector is upstream gets traversed. Merging onto a
 *virgin* lane works only for AND (needs BOTH inputs); OR needs EITHER alone, so there's
-no partner glider to react with. **Fan-in therefore needs a dedicated OR-gadget** (a
-tuned multi-still-life reaction), which is the next hard rung — the same conclusion
-every serious Life-computer builder reaches. Until we have one, the compiler composes
-freely in the {AND, INHIBIT} **fan-out-only** fragment and stops at the first OR.
+no partner glider to react with. A reflector merge is therefore impossible.
 
-Consequence for the adder: the half-adder SUM (XOR = leg1 OR leg2) and the ripple
-CARRY (c1 OR c2) are both fan-ins, so a *composable, single-line* full adder is
-gated on the OR-gadget — not on parity, and not on routing.
+**The route around wall #2 — De Morgan + a constant carrier (`compiler/fragment.py`).**
+Fan-in doesn't need a bespoke OR-gadget. `OR(a,b) = NOT(AND(NOT a, NOT b))`, where
+`NOT x = INHIBIT(1, x)` uses a constant '1' carrier (an injected glider — free in a
+one-shot circuit). The inner `AND(¬a,¬b)` is the **both-present** merge onto a virgin
+lane (RUNG 3) — never a merge of two mutually-exclusive signals — so wall #2 never
+bites. `fragment.py` builds NOT/OR/XOR/half-add/full-add/ripple-add from ONLY the two
+proven reactions (each evaluated through gates.py's raw-Life functions) and passes
+every truth table (incl. 170+85=255, 511+1=512). **So the full adder is in the
+achievable fragment**: every primitive it needs (INHIBIT, AND-merge, fan-out, constant
+carrier) is already verified as real routed gliders, and `compose.py` proved a chaining
+step. What remains between here and a compiled adder is **routing + timing-closure at
+scale (stages 4–6), not a new wall.**
 
 ## Honesty
 Every stage is verified in the bare rule (catalysts restored, exact survivors). We
