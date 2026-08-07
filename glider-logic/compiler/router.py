@@ -43,22 +43,26 @@ def place_snark(g, turn, along, span=60):
             return cat, gs[0], dx
     return None
 
-def route(start_dir, start_pos, segments):
-    """start a glider going start_dir at start_pos; segments = [(turn, along), ...].
-    Returns (all_catalysts, final_glider, waypoints) or None on failure."""
-    x0, y0 = start_pos
-    g = set(gates.glider(DIRNAME[start_dir], x0, y0))
-    cats = set(); wp = [(DIRNAME[start_dir], glider_lane(g), bbox(g))]
+def route_from(g, segments):
+    """Route an EXISTING glider g through segments = [(turn, along), ...].
+    Returns (catalysts, final_glider, waypoints) or None."""
+    g = set(g); cats = set()
+    wp = [(DIRNAME[glider_dir(g)], glider_lane(g), bbox(g))]
     for i, (turn, along) in enumerate(segments):
         r = place_snark(g, turn, along)
         if r is None:
-            print(f"  segment {i} ({turn},{along}) from {DIRNAME[glider_dir(g)]}: NO clean turn")
             return None
         cat, g2, dx = r
         cats |= cat
         wp.append((DIRNAME[glider_dir(g2)], glider_lane(g2), bbox(g2)))
         g = set(g2)
     return cats, g, wp
+
+def route(start_dir, start_pos, segments):
+    """start a fresh glider going start_dir at start_pos, then route it."""
+    x0, y0 = start_pos
+    g = set(gates.glider(DIRNAME[start_dir], x0, y0))
+    return route_from(g, segments)
 
 
 if __name__ == "__main__":
