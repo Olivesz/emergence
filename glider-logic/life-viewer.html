@@ -702,7 +702,14 @@ const COMPILED_AND=`x = 483, y = 567, rule = B3/S23
 5b2o$139b2o7$149b2o$149bo$150b3o$152bo125$4bo$2b5o14b2o$bo5bo13bo$bo2b
 3o12bobo$2obo15b2o$o2b4o$b2o3bo3b2o$3b3o4b2o$3bo$2obo$2ob2o3$11b2o$12b
 o$9b3o$9bo126$153bo$154bo$152b3o3$154bobo$154b2o$155bo!`;
+const COMPILED_NOR=`x = 125, y = 73, rule = B3/S23
+obo$b2o$bo13$63b2o3b2o$63b2o2bob3o$67bo4bo$63b4ob2o2bo$63bo2bobobob2o$
+66bobobobo$67b2obobo$71bo2$57b2o$58bo7b2o$58bobo5b2o$59b2o7$69b2o$69bo
+$70b3o$72bo8$50b2o$49bobo$50b3o$50b2o$51bo7$115bo$113b3o$112bo$112b2o3
+$120b2ob2o$121bob2o$121bo$113b2o4b3o$113b2o3bo3b2o$118b4o2bo$104b2o15b
+ob2o$103bobo12b3o2bo$103bo13bo5bo$102b2o14b5o$120bo!`;
 const PRESETS={
+  "▸ Compiled NOR · fan-in with NO reflector merge (universal)":()=>parseRLE(COMPILED_NOR),
   "▸ Compiled circuit · routed 3-input AND (a&b&c)":()=>parseRLE(COMPILED_AND),
   "▸ Routed XOR (half-adder SUM) · A=1 B=0 → sum 1":()=>parseRLE(ROUTED_XOR),
   "▸ Glider memory · a bit held forever (4-Snark loop)":()=>parseRLE(LATCH),
@@ -744,6 +751,7 @@ function frame(){ if(playing){ acc+=(+document.getElementById("speed").value);
 
 // ---- per-pattern captions (make the gap legible) ----
 const DESC={
+ "▸ Compiled NOR · fan-in with NO reflector merge (universal)":"A physically-routed NOR gate — the FIRST fan-in in raw Life, and universal (like NAND, NOR alone builds any circuit). Two constant 'carrier' gliders feed a routed AND; each real input is a DELETER that annihilates its carrier, so a carrier survives only when its input is 0 — computing AND(NOT a, NOT b) = NOR. Here a=0,b=1: watch b's input glider hunt down and ANNIHILATE carrier B (top-left annihilation) while carrier A sails on — so the AND can't fire, NOR=0. Why it matters: two gliders can't be merged onto one wire by mirrors (a reflector that emits onto a lane also blocks it — 340/340 placements fail). This routes AROUND that wall with De Morgan and a constant carrier — no merge needed. Verified all 4 rows in the bare rule, every catalyst restored.",
  "▸ Compiled circuit · routed 3-input AND (a&b&c)":"Output of our GLIDER-LOGIC COMPILER — not hand-placed. It took the netlist AND(AND(a,b),c) and emitted this raw-B3/S23 field: gate 1 (top-left) is an AND of two input gliders → its output glider is ROUTED through Snark reflectors → fed into gate 2, a second AND with input c. All three inputs are 1 here, so the final merge fires = a&b&c = 1. This is the exact gate-to-gate chaining that hand-building couldn't do (a lane-parity wall); the compiler's structured routing walks through it. Truth table verified in the raw rule. Two AND gates today; the pipeline scales to a full adder.",
  "▸ Routed XOR (half-adder SUM) · A=1 B=0 → sum 1":"The physically-routed XOR — the SUM output of a half-adder — computing in the bare rule. A enters a duplicator (top-left); B (absent here) would enter a second. A's data glider sails down its lane while B's deleter (absent) can't stop it, so the SUM glider ESCAPES = 1. With BOTH inputs the two deleters annihilate both data gliders (sum 0); with either alone, that one survives (sum 1) — a real XOR. Paired with the routed AND (carry), this IS a half-adder; two of them make the full adder that computes 10-bit addition, every bit in raw Life. Verified: exact survivors, every catalyst restored.",
  "▸ Glider memory · a bit held forever (4-Snark loop)":"A 1-BIT MEMORY made of gliders. One glider circulates forever around a diamond of FOUR Snark reflectors — each turns it 90° and restores itself, so the bit (a present glider = 1) never decays. This is EXACTLY periodic: the whole pattern returns to its start every 1528 ticks (run(state,1528)==state, proven), so it holds the bit indefinitely with zero drift. This is the first step past combinational logic — the sequential/stateful element a processor needs. (A duplicator can tap a non-destructive read out of the loop; verified for many passes.)",
@@ -777,7 +785,7 @@ cv.addEventListener("mousedown",e=>drag=[e.clientX,e.clientY,camx,camy]);
 window.addEventListener("mouseup",()=>drag=null);
 window.addEventListener("mousemove",e=>{ if(!drag)return; camx=drag[2]-(e.clientX-drag[0])/scale; camy=drag[3]-(e.clientY-drag[1])/scale; render(); });
 
-presetSel.value="▸ Compiled circuit · routed 3-input AND (a&b&c)"; setSeed(PRESETS[presetSel.value]()); setCaption(presetSel.value); frame();
+presetSel.value="▸ Compiled NOR · fan-in with NO reflector merge (universal)"; setSeed(PRESETS[presetSel.value]()); setCaption(presetSel.value); frame();
 </script>
 </body>
 </html>

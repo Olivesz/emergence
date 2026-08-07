@@ -64,6 +64,17 @@ carrier) is already verified as real routed gliders, and `compose.py` proved a c
 step. What remains between here and a compiled adder is **routing + timing-closure at
 scale (stages 4–6), not a new wall.**
 
+**First physical fan-in built — a routed NOR (`compiler/routed_or.py`).** The route-around
+is now realized in actual gliders: RUNG 3's two AND inputs become CONSTANT carriers, and
+the real inputs `a,b` are DELETERS that annihilate them (carrier survives iff input=0), so
+the AND computes `AND(NOT a, NOT b)` = **NOR** — all 4 rows verified in the bare rule
+(catalysts restored, exact survivors). NOR is functionally complete, so this one verified
+gate is a **universal** physical fan-in. Emitted `compiled_nor.rle`, shipped as the
+life-viewer default. `OR = NOT(NOR)` is one more routed INHIBIT, but its output carrier is
+pinned (by annihilation geometry) onto an SE lane inside the machine's A-entry corridor, so
+it disrupts the merge — OR needs `m` routed to open space first (**floor-planning**, stage
+4–5). That's the concrete next build; the logic and every reaction are already proven.
+
 ## Honesty
 Every stage is verified in the bare rule (catalysts restored, exact survivors). We
 report the wall the moment we hit one. "See how far we can get."
