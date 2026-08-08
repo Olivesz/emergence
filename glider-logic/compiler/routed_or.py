@@ -110,12 +110,14 @@ def verify_nor(cfg):
     return allok, notes
 
 
-def isolate(field, cats, wantdir, lane=None, gap=6, tmax=2600):
-    """Run `field` until it holds exactly one glider (direction wantdir, optional lane)
-    clear of `cats` by `gap`, catalysts restored. Returns (glider_state, T) or (None,T)."""
+def isolate(field, cats, wantdir, lane=None, gap=6, tmax=2600, t_min=0):
+    """Run `field` until (after t_min) it holds exactly one glider (direction wantdir,
+    optional lane) clear of `cats` by `gap`, catalysts restored. Returns (state, T)."""
     s = set(field); cats = set(cats); T = 0
     while T < tmax:
         s = run(s, 15); T += 15
+        if T < t_min:
+            continue
         gs, rest = split_gliders(s)
         if rest == cats and len(gs) == 1 and glider_dir(gs[0]) == wantdir \
                 and bbox_gap(gs[0], cats) >= gap \
