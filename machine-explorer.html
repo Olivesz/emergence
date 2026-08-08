@@ -131,12 +131,16 @@ canvas#life{position:absolute;inset:0;width:100%;height:100%;display:block}
 .intro-card .how b{color:var(--ink)}
 .intro-begin{margin-top:20px;display:inline-flex;align-items:center;gap:10px;background:var(--cyan);color:#04121a;border:0;border-radius:11px;padding:12px 22px;cursor:pointer;font-family:var(--font-mono);font-size:14px;font-weight:700}
 .intro-begin:hover{filter:brightness(1.1);box-shadow:0 8px 28px color-mix(in srgb,var(--cyan) 40%,transparent)}
+.gloss{margin:8px 0 0}
+.gloss dt{font-weight:700;color:var(--cyan);font-family:var(--font-mono);font-size:13px;margin-top:12px}
+.gloss dt:first-child{margin-top:0}
+.gloss dd{margin:3px 0 0;color:var(--ink);font-size:13.5px;line-height:1.5}
 </style>
 <div class="app">
   <header>
     <div class="brand"><b>DESCENT</b> &middot; into the substrate</div>
     <nav class="crumbs" id="crumbs"></nav>
-    <button class="theme" id="about">&#9432; new here?</button><button class="theme" id="theme">&#9682; theme</button>
+    <button class="theme" id="terms">&#9776; terms</button><button class="theme" id="about">&#9432; new here?</button><button class="theme" id="theme">&#9682; theme</button>
   </header>
   <div class="body">
     <div class="stagewrap"><div class="gauge" id="gauge"></div><div class="stage" id="stage"></div></div>
@@ -154,6 +158,21 @@ canvas#life{position:absolute;inset:0;width:100%;height:100%;display:block}
     <p class="dim">The point isn't the chip &mdash; it's that computation falls out of almost nothing.</p>
     <div class="how"><b>How to explore:</b> click any <b>glowing</b> block to zoom one layer deeper. Use the trail along the top to climb back out. The deeper you go, the closer you get to the raw, living dots at the bottom.</div>
     <button class="intro-begin" id="introBegin">Begin the descent &darr;</button>
+  </div>
+</div>
+<div class="intro hidden" id="glossary">
+  <div class="intro-card">
+    <div class="eyebrow">Plain-language terms</div>
+    <h1>A quick glossary</h1>
+    <dl class="gloss">
+      <dt>Cellular automaton</dt><dd>A grid of cells that all update at once by one simple rule. Conway's Game of Life is the famous example.</dd>
+      <dt>Glider</dt><dd>A small pattern that keeps travelling across the grid. Here a glider is a signal — a moving 1.</dd>
+      <dt>Logic gate</dt><dd>The atom of computing: it combines 1s and 0s (AND, OR, NOT…). Two colliding gliders make one.</dd>
+      <dt>Flip-flop</dt><dd>A circuit that remembers a single bit. In gliders, it is a signal looping around forever.</dd>
+      <dt>Bus</dt><dd>The shared lane a CPU uses to shuttle bytes between its parts.</dd>
+      <dt>NAND</dt><dd>"not-and" — one humble gate that, copied enough times, can build literally any circuit.</dd>
+    </dl>
+    <button class="intro-begin" id="glossClose">Got it</button>
   </div>
 </div>
 <script>
@@ -241,8 +260,8 @@ const SCENES={
    diagram:{vb:[960,600],
      wires:[[320,112,450,112,1],[320,300,450,300,1],[640,112,510,112,1],[640,300,510,300,1],[320,500,450,500,1],[640,410,510,410,1],[320,410,450,410],[640,210,510,210,1]],
      labels:[{x:480,y:60,t:"W-BUS",cls:"pin"}],
-     blocks:[{x:90,y:80,w:230,h:64,label:"Program Counter",sub:"next address"},{x:90,y:170,w:230,h:64,label:"RAM · 16 bytes",sub:"the program + data"},{x:90,y:280,w:230,h:64,label:"Instr. Register",sub:"current opcode"},{x:90,y:378,w:230,h:64,label:"B Register",sub:"2nd operand"},{x:90,y:470,w:230,h:64,label:"Controller",sub:"ring counter + matrix",to:"control"},{x:445,y:80,w:70,h:460,label:"",sub:""},{x:640,y:80,w:230,h:64,label:"Accumulator",sub:"the A register",to:"register"},{x:640,y:180,w:230,h:80,label:"ALU · Adder",sub:"A + B  →  bus",to:"alu"},{x:640,y:290,w:230,h:64,label:"Output",sub:"display latch"},{x:640,y:388,w:230,h:64,label:"Flags",sub:"zero · carry"}]},
-   hint:"Three blocks open — the <b>Accumulator</b>, the <b>ALU</b>, and the <b>Controller</b>."},
+     blocks:[{x:90,y:80,w:230,h:64,label:"Program Counter",sub:"next address",to:"register"},{x:90,y:170,w:230,h:64,label:"RAM · 16 bytes",sub:"the program + data",to:"ram"},{x:90,y:280,w:230,h:64,label:"Instr. Register",sub:"current opcode",to:"register"},{x:90,y:378,w:230,h:64,label:"B Register",sub:"2nd operand",to:"register"},{x:90,y:470,w:230,h:64,label:"Controller",sub:"ring counter + matrix",to:"control"},{x:445,y:80,w:70,h:460,label:"",sub:""},{x:640,y:80,w:230,h:64,label:"Accumulator",sub:"the A register",to:"register"},{x:640,y:180,w:230,h:80,label:"ALU · Adder",sub:"A + B  →  bus",to:"alu"},{x:640,y:290,w:230,h:64,label:"Output",sub:"display latch",to:"register"},{x:640,y:388,w:230,h:64,label:"Flags",sub:"zero · carry",to:"dff"}]},
+   hint:"Every block here opens — click any one to zoom in."},
  alu:{layer:1,kicker:"Datapath · arithmetic unit",title:"The 8-bit Adder",
    blurb:"Add/subtract is a row of eight one-bit full adders. A carry ripples from the least significant bit on the right to the most significant on the left. Open bit 0 — the rightmost adder.",
    rail:{lede:"Eight identical full-adder cells, wired in a carry chain. This is the arithmetic heart the ALU wraps.",
@@ -273,8 +292,8 @@ const SCENES={
      wires:[[210,120,270,190,1],[210,150,270,250,1],[210,140,610,190,1],[210,160,610,250,1],[330,320,330,380,1],[670,320,670,380,1]],
      blocks:[{x:220,y:180,w:220,h:140,label:"XOR",sub:"sum bit",to:"gate_xor"},{x:560,y:180,w:220,h:140,label:"AND",sub:"carry bit",to:"gate_and"}]},
    hint:"Open <b>XOR</b> (sum) or <b>AND</b> (carry) — the next layer is gliders."},
- register:{layer:1,kicker:"Datapath · storage",title:"The Accumulator",
-   blurb:"A register is a row of one-bit memory cells — D flip-flops — that all latch together on the clock. Eight of them hold the CPU's working byte. Open one cell.",
+ register:{layer:1,kicker:"Datapath · storage",title:"An 8-bit Register",
+   blurb:"A register is a row of one-bit memory cells — D flip-flops — that all latch together on the clock. The accumulator, the program counter, the instruction register: every one is a row of these. Open one cell.",
    rail:{lede:"8 D flip-flops sharing one clock and one load line. Drive the bus in, pulse load, the byte is held.",
      meta:[["cells","8 × D flip-flop"],["clock","shared"],["opens","one flip-flop"]],
      note:"Registers are why the machine is <b>synchronous</b>: state only changes on a clock edge, so combinational hazards can't accumulate."},
@@ -285,7 +304,7 @@ const SCENES={
    hint:"Open one <b>D flip-flop</b>."},
  dff:{layer:2,kicker:"Logic block · one bit of memory",title:"D Flip-Flop",
    blurb:"A flip-flop stores one bit. It's a small lattice of NAND gates that hold each other's state in a feedback loop — the loop is the memory. Open a NAND to keep descending, or jump to what holding a bit looks like in gliders.",
-   rail:{lede:"Cross-coupled NANDs: the output feeds back to the input, so the cell latches. Six NANDs make an edge-triggered D flip-flop.",
+   rail:{lede:"Cross-coupled NANDs: each gate's output feeds the other's input, so the pair holds its value. A couple more NANDs turn this latch into a clock-triggered flip-flop.",
      meta:[["made of","≈ 6 NAND gates"],["essence","a feedback loop"],["in gliders","a circulating bit"]],
      note:"A flip-flop is <b>state</b>. In gliders, state is a signal that loops forever — which we've actually built."},
    diagram:{vb:[960,520],
@@ -303,6 +322,16 @@ const SCENES={
      wires:(()=>{let w=[];const cx=230,cy=280,r=120;let pts=[];for(let i=0;i<6;i++){let a=-Math.PI/2+i*Math.PI/3;pts.push([cx+r*Math.cos(a),cy+r*Math.sin(a)]);}for(let i=0;i<6;i++){let p=pts[i],q=pts[(i+1)%6];w.push([p[0],p[1],q[0],q[1],1]);}w.push([360,280,520,280,1]);return w;})(),
      blocks:(()=>{let b=[];const cx=230,cy=280,r=120;for(let i=0;i<6;i++){let a=-Math.PI/2+i*Math.PI/3;b.push({x:cx+r*Math.cos(a)-26,y:cy+r*Math.sin(a)-18,w:52,h:36,label:"T"+(i+1),sub:""});}b.push({x:560,y:160,w:150,h:70,label:"NAND",sub:"decode",to:"gate_nand"});b.push({x:560,y:260,w:150,h:70,label:"NAND",sub:"decode"});b.push({x:760,y:210,w:150,h:70,label:"control lines",sub:"→ datapath"});return b;})()},
    hint:"Open a <b>decode NAND</b>."},
+ ram:{layer:1,kicker:"Datapath · memory",title:"RAM — 16 bytes",
+   blurb:"Memory is a stack of registers — one per address — with a decoder that lights up exactly one of them from the address bits. Open a byte (it is just a register) or the decoder (it is just gates).",
+   rail:{lede:"16 addressable bytes = 16 eight-bit registers, picked out by a 4 → 16 address decoder built from NAND gates.",
+     meta:[["bytes","16 × 8-bit register"],["select","4 → 16 decoder"],["opens","a byte / the decoder"]],
+     note:"Storage and logic are the same two primitives — flip-flops to hold a bit, NANDs to choose which."},
+   diagram:{vb:[960,540],
+     labels:[{x:205,y:120,t:"ADDRESS",cls:"pin"},{x:610,y:80,t:"16 BYTES",cls:"pin"},{x:610,y:470,t:"DATA OUT",cls:"pin"}],
+     wires:(()=>{let w=[];for(let i=0;i<6;i++){let y=132+i*58;w.push([300,y,430,y,1]);}return w;})(),
+     blocks:(()=>{let b=[{x:110,y:150,w:190,h:230,label:"Decoder",sub:"4 → 16 select",to:"gate_nand"}];for(let i=0;i<6;i++){let y=110+i*58;b.push(Object.assign({x:430,y:y,w:360,h:44,label:i<5?("byte "+i):"⋮ 16 total",sub:""},i===0?{to:"register"}:{}));}return b;})()},
+   hint:"Open a <b>byte</b> (a register) or the <b>decoder</b> (gates)."},
  gate_and:{layer:3,gate:true,kicker:"Gate · the carry bit",title:"AND",symbol:"AND",formula:"out = A ∧ B",truth:[["0","0","0"],["0","1","0"],["1","0","0"],["1","1","1"]],to:"gliders_and",toLabel:"See the AND gate as gliders",
    blurb:"Output is 1 only when both inputs are 1. In the half-adder this is the carry. One layer down, it is two gliders that only produce an output when both arrive.",
    rail:{lede:"AND is a coincidence detector. In gliders: a two-glider merge on a lane neither input reaches alone.",meta:[["role","carry bit"],["gliders","routed merge"]]}},
@@ -365,6 +394,10 @@ const _intro=document.getElementById("intro");
 document.getElementById("introBegin").onclick=()=>_intro.classList.add("hidden");
 document.getElementById("about").onclick=()=>_intro.classList.remove("hidden");
 _intro.addEventListener("click",e=>{if(e.target===_intro)_intro.classList.add("hidden");});
-document.addEventListener("keydown",e=>{if(e.key==="Escape")_intro.classList.add("hidden");});
+const _gloss=document.getElementById("glossary");
+document.getElementById("terms").onclick=()=>_gloss.classList.remove("hidden");
+document.getElementById("glossClose").onclick=()=>_gloss.classList.add("hidden");
+_gloss.addEventListener("click",e=>{if(e.target===_gloss)_gloss.classList.add("hidden");});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){_intro.classList.add("hidden");_gloss.classList.add("hidden");}});
 render(false);
 </script>
