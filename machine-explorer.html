@@ -117,16 +117,43 @@ canvas#life{position:absolute;inset:0;width:100%;height:100%;display:block}
 .back:disabled{opacity:.35;cursor:default}
 .note{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--layer);padding-left:11px}
 .note b{color:var(--ink)}
+
+.intro{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(4,7,13,.82);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:1;transition:opacity .3s;overflow-y:auto}
+.intro.hidden{opacity:0;pointer-events:none}
+.intro-card{max-width:620px;background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--edge);border-radius:18px;padding:30px 32px;box-shadow:0 30px 80px rgba(0,0,0,.5);margin:auto}
+.intro-card .eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--cyan)}
+.intro-card h1{margin:8px 0 14px;font-size:clamp(22px,3vw,30px);letter-spacing:-.01em;text-wrap:balance}
+.intro-card p{margin:0 0 12px;font-size:14.5px;line-height:1.6;color:var(--ink)}
+.intro-card p.dim{color:var(--dim);font-size:13.5px}
+.intro-card b{color:var(--cyan)}
+.intro-card i{color:var(--amber);font-style:normal}
+.intro-card .how{margin-top:16px;padding:13px 15px;border:1px solid var(--edge);border-radius:11px;background:color-mix(in srgb,var(--cyan) 6%,transparent);font-size:13px;color:var(--dim);line-height:1.55}
+.intro-card .how b{color:var(--ink)}
+.intro-begin{margin-top:20px;display:inline-flex;align-items:center;gap:10px;background:var(--cyan);color:#04121a;border:0;border-radius:11px;padding:12px 22px;cursor:pointer;font-family:var(--font-mono);font-size:14px;font-weight:700}
+.intro-begin:hover{filter:brightness(1.1);box-shadow:0 8px 28px color-mix(in srgb,var(--cyan) 40%,transparent)}
 </style>
 <div class="app">
   <header>
     <div class="brand"><b>DESCENT</b> &middot; into the substrate</div>
     <nav class="crumbs" id="crumbs"></nav>
-    <button class="theme" id="theme">&#9682; theme</button>
+    <button class="theme" id="about">&#9432; new here?</button><button class="theme" id="theme">&#9682; theme</button>
   </header>
   <div class="body">
     <div class="stagewrap"><div class="gauge" id="gauge"></div><div class="stage" id="stage"></div></div>
     <aside class="rail" id="rail"></aside>
+  </div>
+</div>
+<div class="intro" id="intro">
+  <div class="intro-card">
+    <div class="eyebrow">Emergence · start here</div>
+    <h1>This is a computer made of dots.</h1>
+    <p>What you're looking at is a real, working processor &mdash; the same idea as the chip in your phone, just small and slow enough to watch. It runs actual programs.</p>
+    <p>The strange part: zoom into any piece of it and you'll find it's built from smaller pieces, and smaller ones, until at the very bottom there is nothing but dots on a grid, blinking on and off.</p>
+    <p>Those dots obey one rule &mdash; Conway's <i>Game&nbsp;of&nbsp;Life</i>: a dot switches on when exactly three of its neighbours are on, and stays on with two or three. That is the <b>entire</b> law of physics here. No wires, no electricity.</p>
+    <p>The little gliding shapes are <b>gliders</b> &mdash; patterns that travel across the grid. They carry the 1s and 0s, and where two of them collide, the rule decides what survives. <b>That collision is a logic gate.</b> Stack enough of them and you get arithmetic, memory, a whole CPU.</p>
+    <p class="dim">The point isn't the chip &mdash; it's that computation falls out of almost nothing.</p>
+    <div class="how"><b>How to explore:</b> click any <b>glowing</b> block to zoom one layer deeper. Use the trail along the top to climb back out. The deeper you go, the closer you get to the raw, living dots at the bottom.</div>
+    <button class="intro-begin" id="introBegin">Begin the descent &darr;</button>
   </div>
 </div>
 <script>
@@ -334,5 +361,10 @@ function wireHotspots(scene){scene.querySelectorAll("[data-to]").forEach(el=>el.
 function enter(id){if(!SCENES[id])return;stack.push(id);render(true);}
 function render(animateOut){const sc=cur();document.documentElement.style.setProperty("--layer","var("+accentFor(sc.layer)+")");renderGauge(sc.layer);renderCrumbs();renderRail(sc);life=null;const old=stage.firstElementChild;const swap=()=>{stage.innerHTML="";const scene=buildScene(sc);stage.appendChild(scene);wireHotspots(scene);if(sc.life)startLife(sc);};const reduce=window.matchMedia("(prefers-reduced-motion:reduce)").matches;if(old&&animateOut&&!reduce){old.classList.remove("enter");old.classList.add("leave");setTimeout(swap,260);}else swap();}
 document.getElementById("theme").onclick=()=>{const root=document.documentElement;const c=root.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light");root.setAttribute("data-theme",c==="dark"?"light":"dark");const sc=cur();document.documentElement.style.setProperty("--layer","var("+accentFor(sc.layer)+")");};
+const _intro=document.getElementById("intro");
+document.getElementById("introBegin").onclick=()=>_intro.classList.add("hidden");
+document.getElementById("about").onclick=()=>_intro.classList.remove("hidden");
+_intro.addEventListener("click",e=>{if(e.target===_intro)_intro.classList.add("hidden");});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")_intro.classList.add("hidden");});
 render(false);
 </script>
