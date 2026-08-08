@@ -1,0 +1,338 @@
+<title>Descent into the Substrate — a CPU, all the way down to gliders</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{
+  --bg:#070b12; --panel:#0e1524; --panel2:#111b2e; --edge:#1e2c44;
+  --ink:#d3deef; --dim:#647087; --dimmer:#3f4a5e;
+  --cyan:#4fe3ff; --amber:#ffcf70; --orange:#ff9e5a; --rose:#ff6f91; --steel:#9fb2c8; --good:#57e389;
+  --stage-bg:#0b1120;
+  --font-mono:ui-monospace,"SF Mono",Menlo,"Cascadia Code",Consolas,monospace;
+  --font-sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --layer:var(--steel);
+}
+@media (prefers-color-scheme: light){
+  :root{
+    --bg:#eef1f6; --panel:#ffffff; --panel2:#f4f6fb; --edge:#d3dbe8;
+    --ink:#1a2436; --dim:#5b6578; --dimmer:#96a1b4;
+    --cyan:#0b8fb8; --amber:#b6791a; --orange:#c25a1e; --rose:#c23a63; --steel:#4d647f; --good:#1f9d57;
+    --stage-bg:#f7f9fc;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#070b12; --panel:#0e1524; --panel2:#111b2e; --edge:#1e2c44;
+  --ink:#d3deef; --dim:#647087; --dimmer:#3f4a5e;
+  --cyan:#4fe3ff; --amber:#ffcf70; --orange:#ff9e5a; --rose:#ff6f91; --steel:#9fb2c8; --good:#57e389;
+  --stage-bg:#0b1120;
+}
+:root[data-theme="light"]{
+  --bg:#eef1f6; --panel:#ffffff; --panel2:#f4f6fb; --edge:#d3dbe8;
+  --ink:#1a2436; --dim:#5b6578; --dimmer:#96a1b4;
+  --cyan:#0b8fb8; --amber:#b6791a; --orange:#c25a1e; --rose:#c23a63; --steel:#4d647f; --good:#1f9d57;
+  --stage-bg:#f7f9fc;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-sans);-webkit-font-smoothing:antialiased;overflow:hidden}
+.app{display:grid;grid-template-rows:auto 1fr;height:100dvh;max-height:100dvh}
+header{display:flex;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--edge);background:linear-gradient(180deg,var(--panel),var(--panel2))}
+.brand{font-family:var(--font-mono);font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
+.brand b{color:var(--ink);font-weight:600}
+.crumbs{display:flex;align-items:center;gap:2px;flex-wrap:wrap;font-family:var(--font-mono);font-size:12.5px;flex:1;min-width:0}
+.crumb{background:none;border:0;color:var(--dim);cursor:pointer;padding:4px 7px;border-radius:6px;font-family:inherit;font-size:inherit;letter-spacing:.02em;white-space:nowrap}
+.crumb:hover{color:var(--ink);background:color-mix(in srgb,var(--layer) 14%,transparent)}
+.crumb.here{color:var(--layer);font-weight:600}
+.crumb.here:hover{background:none;cursor:default}
+.sep{color:var(--dimmer);font-size:11px}
+.theme{margin-left:auto;background:none;border:1px solid var(--edge);color:var(--dim);border-radius:8px;padding:6px 10px;cursor:pointer;font-family:var(--font-mono);font-size:11px}
+.theme:hover{color:var(--ink);border-color:var(--layer)}
+.body{display:grid;grid-template-columns:1fr 300px;grid-template-rows:minmax(0,1fr);min-height:0}
+@media (max-width:820px){.body{grid-template-columns:1fr}.rail{display:none}}
+.stagewrap{position:relative;min-width:0;min-height:0;overflow:hidden;background:var(--stage-bg)}
+.gauge{position:absolute;left:14px;top:14px;z-index:5;display:flex;flex-direction:column;gap:5px}
+.rung{display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dimmer)}
+.rung .dot{width:9px;height:9px;border-radius:50%;background:var(--edge);border:1px solid var(--edge);flex:none}
+.rung.on{color:var(--layer)}
+.rung.on .dot{background:var(--layer);border-color:var(--layer);box-shadow:0 0 10px var(--layer)}
+.rung.done .dot{background:color-mix(in srgb,var(--layer) 40%,transparent)}
+.stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.scene{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:44px 24px 20px}
+.scene:has(.lifewrap){padding:0}
+.scene.enter{animation:dive .42s cubic-bezier(.2,.7,.2,1)}
+.scene.leave{animation:surface .3s ease forwards}
+@keyframes dive{from{opacity:0;transform:scale(.82)}to{opacity:1;transform:scale(1)}}
+@keyframes surface{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(1.14)}}
+@media (prefers-reduced-motion:reduce){.scene.enter,.scene.leave{animation:none}}
+.scenehead{text-align:center;margin-bottom:14px;max-width:760px}
+.scenehead .kicker{font-family:var(--font-mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--layer)}
+.scenehead h1{margin:5px 0 4px;font-size:clamp(19px,2.4vw,26px);letter-spacing:-.01em;text-wrap:balance}
+.scenehead p{margin:0;color:var(--dim);font-size:13.5px;line-height:1.5;text-wrap:pretty}
+svg.diagram{width:100%;height:auto;max-height:62vh;font-family:var(--font-mono)}
+.blk{fill:var(--panel);stroke:var(--edge);stroke-width:1.5}
+.blk-l{fill:var(--ink);font-size:15px;font-weight:600}
+.blk-s{fill:var(--dim);font-size:10.5px;letter-spacing:.06em}
+.wire{stroke:var(--dimmer);stroke-width:1.5;fill:none}
+.wire.flow{stroke:var(--layer);stroke-dasharray:5 7;animation:flow 1s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-24}}
+@media (prefers-reduced-motion:reduce){.wire.flow{animation:none}}
+.lbl{fill:var(--dim);font-size:11px}
+.pin{fill:var(--layer);font-size:11px;font-weight:600}
+.hot{cursor:pointer}
+.hot .blk{stroke:var(--layer);stroke-width:2}
+.hot:hover .blk{fill:color-mix(in srgb,var(--layer) 15%,var(--panel));filter:drop-shadow(0 0 10px color-mix(in srgb,var(--layer) 45%,transparent))}
+.hot .halo{fill:none;stroke:var(--layer);stroke-width:1.5;opacity:.5;animation:halo 2.4s ease-in-out infinite}
+@keyframes halo{0%,100%{opacity:.18}50%{opacity:.6}}
+@media (prefers-reduced-motion:reduce){.hot .halo{animation:none;opacity:.4}}
+.hot .zoomtag{fill:var(--layer);font-size:11px;font-weight:700}
+.hint{margin-top:2px;font-family:var(--font-mono);font-size:11px;color:var(--dim);text-align:center}
+.hint b{color:var(--layer)}
+.gate-truth{border-collapse:collapse;font-family:var(--font-mono);font-size:13px;margin-top:6px}
+.gate-truth th,.gate-truth td{border:1px solid var(--edge);padding:5px 12px;text-align:center;font-variant-numeric:tabular-nums}
+.gate-truth th{color:var(--dim);font-weight:500;font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+.gate-truth td{color:var(--ink)}
+.gate-truth td.out{color:var(--layer);font-weight:700}
+.descend{margin-top:20px;display:inline-flex;align-items:center;gap:10px;background:var(--layer);color:#04121a;border:0;border-radius:10px;padding:11px 20px;cursor:pointer;font-family:var(--font-mono);font-size:13px;font-weight:700;letter-spacing:.02em}
+.descend:hover{filter:brightness(1.12);box-shadow:0 6px 24px color-mix(in srgb,var(--layer) 40%,transparent)}
+.descend .big{font-size:16px}
+.lifewrap{position:relative;width:100%;height:100%;background:#03060b}
+canvas#life{position:absolute;inset:0;width:100%;height:100%;display:block}
+.lifehud{position:absolute;left:16px;bottom:14px;z-index:4;display:flex;gap:8px;align-items:center;font-family:var(--font-mono);font-size:11.5px;color:var(--cyan)}
+.lifehud .badge{background:rgba(3,10,20,.7);border:1px solid color-mix(in srgb,var(--cyan) 30%,transparent);border-radius:7px;padding:5px 10px;letter-spacing:.04em}
+.lifectl{position:absolute;right:16px;bottom:14px;z-index:4;display:flex;gap:6px}
+.lifectl button{background:rgba(3,10,20,.7);border:1px solid color-mix(in srgb,var(--cyan) 30%,transparent);color:var(--cyan);border-radius:7px;padding:6px 11px;cursor:pointer;font-family:var(--font-mono);font-size:11.5px}
+.lifectl button:hover{background:color-mix(in srgb,var(--cyan) 18%,rgba(3,10,20,.8))}
+.lifecap{position:absolute;left:16px;top:16px;right:16px;z-index:4;max-width:560px}
+.lifecap .kicker{font-family:var(--font-mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--cyan)}
+.lifecap h1{margin:5px 0 6px;font-size:clamp(18px,2.3vw,24px);color:#eaf6ff}
+.lifecap p{margin:0;color:#8fb2c8;font-size:13px;line-height:1.55;max-width:52ch}
+.rail{border-left:1px solid var(--edge);background:linear-gradient(180deg,var(--panel),var(--panel2));padding:20px 18px;overflow-y:auto;display:flex;flex-direction:column;gap:18px}
+.rail h2{margin:0;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--layer);font-family:var(--font-mono)}
+.rail .lede{margin:6px 0 0;font-size:13.5px;line-height:1.55;color:var(--ink)}
+.rail .meta{display:flex;flex-direction:column;gap:9px;margin-top:2px}
+.mrow{display:flex;justify-content:space-between;gap:10px;font-family:var(--font-mono);font-size:12px;padding-bottom:9px;border-bottom:1px solid var(--edge)}
+.mrow .k{color:var(--dim);letter-spacing:.04em}
+.mrow .v{color:var(--ink);text-align:right;font-variant-numeric:tabular-nums}
+.mrow .v.accent{color:var(--layer)}
+.back{margin-top:auto;background:none;border:1px solid var(--edge);color:var(--dim);border-radius:9px;padding:10px;cursor:pointer;font-family:var(--font-mono);font-size:12px}
+.back:hover{color:var(--ink);border-color:var(--layer)}
+.back:disabled{opacity:.35;cursor:default}
+.note{font-size:12px;line-height:1.5;color:var(--dim);border-left:2px solid var(--layer);padding-left:11px}
+.note b{color:var(--ink)}
+</style>
+<div class="app">
+  <header>
+    <div class="brand"><b>DESCENT</b> &middot; into the substrate</div>
+    <nav class="crumbs" id="crumbs"></nav>
+    <button class="theme" id="theme">&#9682; theme</button>
+  </header>
+  <div class="body">
+    <div class="stagewrap"><div class="gauge" id="gauge"></div><div class="stage" id="stage"></div></div>
+    <aside class="rail" id="rail"></aside>
+  </div>
+</div>
+<script>
+"use strict";
+const key=(x,y)=>x+","+y, unkey=k=>{const i=k.indexOf(",");return[+k.slice(0,i),+k.slice(i+1)];};
+function step(cells){ const nb=new Map();
+  for(const k of cells){ const[x,y]=unkey(k);
+    for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){ if(!dx&&!dy)continue;
+      const kk=key(x+dx,y+dy); nb.set(kk,(nb.get(kk)||0)+1);} }
+  const nx=new Set(); for(const[k,n]of nb){ if(n===3||(n===2&&cells.has(k))) nx.add(k);} return nx; }
+function bbox(c){ let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; for(const k of c){const[x,y]=unkey(k);
+  if(x<x0)x0=x;if(y<y0)y0=y;if(x>x1)x1=x;if(y>y1)y1=y;} return c.size?[x0,y0,x1,y1]:[0,0,0,0]; }
+function parseRLE(txt){ const s=new Set(); let x=0,y=0,num="";
+  let lines=txt.split("\n").filter(l=>!l.startsWith("#")); let body=lines.join("\n");
+  if(/x\s*=/.test(body.split("\n")[0])) body=body.substring(body.indexOf("\n")+1);
+  body=body.replace(/\s+/g,"");
+  for(const ch of body){ if(ch>="0"&&ch<="9"){num+=ch;continue;}
+    const n=num?parseInt(num):1; num="";
+    if(ch==="b")x+=n; else if(ch==="o"){for(let i=0;i<n;i++)s.add(key(x++,y));}
+    else if(ch==="$"){y+=n;x=0;} else if(ch==="!")break; }
+  return s; }
+const RLE={
+AND:`x = 125, y = 73, rule = B3/S23
+obo$b2o$bo13$63b2o3b2o$63b2o2bob3o$67bo4bo$63b4ob2o2bo$63bo2bobobob2o$
+66bobobobo$67b2obobo$71bo2$57b2o$58bo7b2o$58bobo5b2o$59b2o7$69b2o$69bo
+$70b3o$72bo8$50b2o$49bobo$51bo9$115bo$113b3o$112bo$112b2o3$120b2ob2o$1
+21bob2o$121bo$113b2o4b3o$113b2o3bo3b2o$118b4o2bo$104b2o15bob2o$103bobo
+12b3o2bo$103bo13bo5bo$102b2o14b5o$120bo!`,
+NOR:`x = 125, y = 73, rule = B3/S23
+obo$b2o$bo13$63b2o3b2o$63b2o2bob3o$67bo4bo$63b4ob2o2bo$63bo2bobobob2o$
+66bobobobo$67b2obobo$71bo2$57b2o$58bo7b2o$58bobo5b2o$59b2o7$69b2o$69bo
+$70b3o$72bo8$50b2o$49bobo$50b3o$50b2o$51bo7$115bo$113b3o$112bo$112b2o3
+$120b2ob2o$121bob2o$121bo$113b2o4b3o$113b2o3bo3b2o$118b4o2bo$104b2o15b
+ob2o$103bobo12b3o2bo$103bo13bo5bo$102b2o14b5o$120bo!`,
+XOR:`x = 520, y = 559, rule = B3/S23
+obo$b2o$bo24$51b2o$52bo$52bobo$42bo10b2o$40b3o$39bo$39b2o$24b2o48b2o$2
+5bo48b2o$25bob2o$26bo2bo$27b2o$42b2o$42b2o4$51bo3b2o$50bobo3bo$49bobo3
+bo$45b2obobo3bo$45b2obo2b4obo5b2o$49bobo3bobo5bo$45b2ob2o2bo2bobo2b3o$
+46bobo2b2o3bo3bo$34b2o10bobo$34b2o11bo34$102b2o$103bo$103bobo$104b2o11
+8$201b2o$202bo$202bobo$192bo10b2o$190b3o$189bo$189b2o$174b2o48b2o$175b
+o48b2o$175bob2o$176bo2bo$177b2o$192b2o$192b2o4$201bo3b2o$200bobo3bo$19
+9bobo3bo$195b2obobo3bo$195b2obo2b4obo5b2o$199bobo3bobo5bo$195b2ob2o2bo
+2bobo2b3o$196bobo2b2o3bo3bo$184b2o10bobo$184b2o11bo32$250b2o$251bo$251
+bobo$252b2o237$443bobo$444b2o$444bo25$495b2o$496bo$496bobo$486bo10b2o$
+484b3o$483bo$483b2o$468b2o48b2o$469bo48b2o$469bob2o$470bo2bo$471b2o$48
+6b2o$486b2o4$495bo3b2o$494bobo3bo$493bobo3bo$489b2obobo3bo$489b2obo2b4
+obo5b2o$493bobo3bobo5bo$489b2ob2o2bo2bobo2b3o$490bobo2b2o3bo3bo$478b2o
+10bobo$478b2o11bo!`,
+MEM:`x = 213, y = 213, rule = B3/S23
+86b2o3b2o$86b2o2bob3o$90bo4bo$86b4ob2o2bo$86bo2bobobob2o$89bobobobo$90
+b2obobo$94bo2$80b2o$81bo7b2o$81bobo5b2o$82b2o7$92b2o$92bo$93b3o$95bo68
+$4bo$2b5o14b2o$bo5bo13bo$bo2b3o12bobo$2obo15b2o$o2b4o$b2o3bo3b2o$3b3o4
+b2o$3bo$2obo$2ob2o3$11b2o$12bo$9b3o$9bo193bo$201b3o$200bo$200b2o$28b3o
+$28bo$29bo178b2ob2o$209bob2o$209bo$201b2o4b3o$201b2o3bo3b2o$206b4o2bo$
+192b2o15bob2o$191bobo12b3o2bo$191bo13bo5bo$190b2o14b5o$208bo68$117bo$1
+17b3o$120bo$119b2o7$129b2o$122b2o5bobo$122b2o7bo$131b2o2$118bo$117bobo
+b2o$117bobobobo$116b2obobobo2bo$117bo2b2ob4o$117bo4bo$118b3obo2b2o$120
+b2o3b2o!`};
+const NS="http://www.w3.org/2000/svg";
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function block(b){ const hot=!!b.to, cx=b.x+b.w/2;
+  let g=`<g class="${hot?'hot':''}" ${hot?`data-to="${b.to}"`:''}>`;
+  if(hot) g+=`<rect class="halo" x="${b.x-5}" y="${b.y-5}" width="${b.w+10}" height="${b.h+10}" rx="12"/>`;
+  g+=`<rect class="blk" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="9"/>`;
+  const ly=b.sub?b.y+b.h/2-3:b.y+b.h/2+5;
+  g+=`<text class="blk-l" x="${cx}" y="${ly}" text-anchor="middle">${esc(b.label)}</text>`;
+  if(b.sub) g+=`<text class="blk-s" x="${cx}" y="${b.y+b.h/2+13}" text-anchor="middle">${esc(b.sub)}</text>`;
+  if(hot) g+=`<text class="zoomtag" x="${b.x+b.w-8}" y="${b.y+15}" text-anchor="end">&#10530;</text>`;
+  return g+`</g>`;
+}
+function wire(w){const dash=w[4]?'flow':'';return `<path class="wire ${dash}" d="M${w[0]} ${w[1]} L${w[2]} ${w[3]}"/>`;}
+function lbl(l){return `<text class="${l.cls||'lbl'}" x="${l.x}" y="${l.y}" text-anchor="${l.anchor||'middle'}">${esc(l.t)}</text>`;}
+function diagramSVG(d){
+  let s=`<svg class="diagram" viewBox="0 0 ${d.vb[0]} ${d.vb[1]}" preserveAspectRatio="xMidYMid meet">`;
+  (d.wires||[]).forEach(w=>s+=wire(w));(d.labels||[]).forEach(l=>s+=lbl(l));(d.blocks||[]).forEach(b=>s+=block(b));
+  return s+`</svg>`;
+}
+const L=["Machine","Datapath","Logic block","Gate","Gliders"];
+const SCENES={
+ cpu:{layer:0,kicker:"SAP-1 · Wireworld processor",title:"A working CPU",
+   blurb:"A real Simple-As-Possible processor — it runs programs (here, 5 + 3 → 8). Every block below is built from just two primitives: a NAND gate and a D flip-flop. Click a highlighted block to open it.",
+   rail:{lede:"The whole machine is 1,446 NAND gates + 175 flip-flops — and each of those is, one layer down, a pattern of gliders in Conway's Life.",
+     meta:[["substrate","Wireworld → Life"],["primitives","NAND + DFF"],["gates","1,446"],["flip-flops","175"],["program","5 + 3 → 8"]],
+     note:"Hand-wiring gates into a CPU hits a hazard wall; the fix is a <b>synchronous</b> discipline — latch every signal once per clock. That's why the whole machine reduces to {NAND, DFF}."},
+   diagram:{vb:[960,600],
+     wires:[[320,112,450,112,1],[320,300,450,300,1],[640,112,510,112,1],[640,300,510,300,1],[320,500,450,500,1],[640,410,510,410,1],[320,410,450,410],[640,210,510,210,1]],
+     labels:[{x:480,y:60,t:"W-BUS",cls:"pin"}],
+     blocks:[{x:90,y:80,w:230,h:64,label:"Program Counter",sub:"next address"},{x:90,y:170,w:230,h:64,label:"RAM · 16 bytes",sub:"the program + data"},{x:90,y:280,w:230,h:64,label:"Instr. Register",sub:"current opcode"},{x:90,y:378,w:230,h:64,label:"B Register",sub:"2nd operand"},{x:90,y:470,w:230,h:64,label:"Controller",sub:"ring counter + matrix",to:"control"},{x:445,y:80,w:70,h:460,label:"",sub:""},{x:640,y:80,w:230,h:64,label:"Accumulator",sub:"the A register",to:"register"},{x:640,y:180,w:230,h:80,label:"ALU · Adder",sub:"A + B  →  bus",to:"alu"},{x:640,y:290,w:230,h:64,label:"Output",sub:"display latch"},{x:640,y:388,w:230,h:64,label:"Flags",sub:"zero · carry"}]},
+   hint:"Three blocks open — the <b>Accumulator</b>, the <b>ALU</b>, and the <b>Controller</b>."},
+ alu:{layer:1,kicker:"Datapath · arithmetic unit",title:"The 8-bit Adder",
+   blurb:"Add/subtract is a row of eight one-bit full adders. A carry ripples from the least significant bit on the right to the most significant on the left. Open bit 0 — the rightmost adder.",
+   rail:{lede:"Eight identical full-adder cells, wired in a carry chain. This is the arithmetic heart the ALU wraps.",
+     meta:[["cells","8 × full adder"],["carry","ripples right → left"],["opens","bit 0"]],
+     note:"Every cell is the <b>same</b> circuit — build one, tile it eight times. The compiler's whole job is placing copies and wiring them."},
+   diagram:{vb:[960,560],
+     labels:[{x:480,y:60,t:"A[7:0] + B[7:0]",cls:"pin"},{x:480,y:520,t:"SUM[7:0]",cls:"pin"},{x:70,y:250,t:"carry",cls:"lbl"},{x:895,y:250,t:"cin=0",cls:"lbl"}],
+     wires:(()=>{let w=[];for(let i=0;i<8;i++){let x=120+i*95;w.push([x+40,90,x+40,180]);w.push([x+40,340,x+40,470]);}for(let i=0;i<7;i++){let x=120+i*95;w.push([x,260,x-15,260,1]);}return w;})(),
+     blocks:(()=>{let b=[];for(let i=0;i<8;i++){let bit=7-i,x=120+i*95;b.push(Object.assign({x:x,y:180,w:80,h:160,label:"FA",sub:"bit "+bit},bit===0?{to:"fulladder"}:{}));}return b;})()},
+   hint:"Open <b>bit 0</b> — one full adder."},
+ fulladder:{layer:2,kicker:"Logic block · one column of addition",title:"Full Adder",
+   blurb:"A + B + carry-in → sum, carry-out. It's two half-adders and an OR: the first adds A and B, the second adds the carry-in, and the OR merges the two carries.",
+   rail:{lede:"sum = A ⊕ B ⊕ Cin,  carry = majority(A,B,Cin). Two half-adders chained, their carries OR'd.",
+     meta:[["made of","2 half-adders + OR"],["opens","a half-adder"]],
+     note:"The two half-adder carries are <b>mutually exclusive</b>, so the OR never sees both at once — a detail that matters when you build the OR in gliders."},
+   diagram:{vb:[960,560],
+     labels:[{x:120,y:120,t:"A",cls:"pin"},{x:120,y:170,t:"B",cls:"pin"},{x:120,y:400,t:"Cin",cls:"pin"},{x:900,y:250,t:"Sum",cls:"pin"},{x:900,y:150,t:"Cout",cls:"pin"}],
+     wires:[[150,130,220,180,1],[150,170,220,220,1],[420,250,470,300,1],[150,400,470,340,1],[690,300,740,250,1],[420,330,760,215],[690,360,760,230],[830,200,880,150,1],[760,410,880,250,1]],
+     blocks:[{x:220,y:150,w:200,h:130,label:"Half Adder",sub:"A , B",to:"halfadder"},{x:470,y:290,w:220,h:130,label:"Half Adder",sub:"sum₁ , Cin",to:"halfadder"},{x:740,y:150,w:120,h:100,label:"OR",sub:"carry",to:"gate_or"}]},
+   hint:"Open a <b>half-adder</b>, or the <b>OR</b> gate."},
+ halfadder:{layer:2,kicker:"Logic block · the atom of addition",title:"Half Adder",
+   blurb:"The simplest adder: two bits in, a sum and a carry out. The sum is an XOR gate, the carry is an AND gate. Two gates — and we have both as real gliders.",
+   rail:{lede:"sum = A ⊕ B (XOR),  carry = A ∧ B (AND). From here, both gates open straight onto their physical glider fields.",
+     meta:[["sum","XOR gate"],["carry","AND gate"],["next","actual gliders"]],
+     note:"This is the boundary. One more click and there is no more abstraction — just cells turning on and off under <b>B3/S23</b>."},
+   diagram:{vb:[960,520],
+     labels:[{x:180,y:110,t:"A",cls:"pin"},{x:180,y:150,t:"B",cls:"pin"},{x:330,y:400,t:"Sum",cls:"pin"},{x:670,y:400,t:"Carry",cls:"pin"}],
+     wires:[[210,120,270,190,1],[210,150,270,250,1],[210,140,610,190,1],[210,160,610,250,1],[330,320,330,380,1],[670,320,670,380,1]],
+     blocks:[{x:220,y:180,w:220,h:140,label:"XOR",sub:"sum bit",to:"gate_xor"},{x:560,y:180,w:220,h:140,label:"AND",sub:"carry bit",to:"gate_and"}]},
+   hint:"Open <b>XOR</b> (sum) or <b>AND</b> (carry) — the next layer is gliders."},
+ register:{layer:1,kicker:"Datapath · storage",title:"The Accumulator",
+   blurb:"A register is a row of one-bit memory cells — D flip-flops — that all latch together on the clock. Eight of them hold the CPU's working byte. Open one cell.",
+   rail:{lede:"8 D flip-flops sharing one clock and one load line. Drive the bus in, pulse load, the byte is held.",
+     meta:[["cells","8 × D flip-flop"],["clock","shared"],["opens","one flip-flop"]],
+     note:"Registers are why the machine is <b>synchronous</b>: state only changes on a clock edge, so combinational hazards can't accumulate."},
+   diagram:{vb:[960,520],
+     labels:[{x:480,y:70,t:"DATA IN (bus)",cls:"pin"},{x:480,y:470,t:"HELD BYTE",cls:"pin"},{x:60,y:250,t:"CLK",cls:"pin"},{x:60,y:300,t:"LOAD",cls:"pin"}],
+     wires:(()=>{let w=[[90,250,900,250],[90,300,900,300]];for(let i=0;i<8;i++){let x=110+i*100;w.push([x+35,90,x+35,180,1]);w.push([x+35,360,x+35,440,1]);}return w;})(),
+     blocks:(()=>{let b=[];for(let i=0;i<8;i++){let x=110+i*100;b.push(Object.assign({x:x,y:180,w:72,h:150,label:"DFF",sub:"bit "+(7-i)},i===0?{to:"dff"}:{}));}return b;})()},
+   hint:"Open one <b>D flip-flop</b>."},
+ dff:{layer:2,kicker:"Logic block · one bit of memory",title:"D Flip-Flop",
+   blurb:"A flip-flop stores one bit. It's a small lattice of NAND gates that hold each other's state in a feedback loop — the loop is the memory. Open a NAND to keep descending, or jump to what holding a bit looks like in gliders.",
+   rail:{lede:"Cross-coupled NANDs: the output feeds back to the input, so the cell latches. Six NANDs make an edge-triggered D flip-flop.",
+     meta:[["made of","≈ 6 NAND gates"],["essence","a feedback loop"],["in gliders","a circulating bit"]],
+     note:"A flip-flop is <b>state</b>. In gliders, state is a signal that loops forever — which we've actually built."},
+   diagram:{vb:[960,520],
+     labels:[{x:150,y:150,t:"D",cls:"pin"},{x:150,y:360,t:"CLK",cls:"pin"},{x:830,y:200,t:"Q",cls:"pin"},{x:480,y:70,t:"cross-coupled feedback = 1 bit held",cls:"lbl"}],
+     wires:[[180,160,240,190,1],[180,360,240,330,1],[360,210,420,210,1],[360,300,420,300,1],[560,210,620,240,1],[560,300,620,270,1],[740,255,800,210,1],[700,300,700,360,1],[700,360,300,360],[300,360,300,300],[300,300,240,300,1]],
+     blocks:[{x:240,y:180,w:120,h:70,label:"NAND",sub:"",to:"gate_nand"},{x:240,y:270,w:120,h:70,label:"NAND",sub:""},{x:620,y:200,w:120,h:70,label:"NAND",sub:""},{x:620,y:250,w:120,h:70,label:"NAND",sub:""},{x:410,y:430,w:280,h:64,label:"A bit held in gliders",sub:"the 1-bit glider memory",to:"gliders_mem"}]},
+   hint:"Open a <b>NAND</b>, or jump to the <b>glider memory</b>."},
+ control:{layer:1,kicker:"Datapath · sequencing",title:"The Controller",
+   blurb:"The controller decides what happens each clock tick. A one-hot ring counter walks through micro-steps T1…T6, and a matrix of gates turns each step + opcode into control lines. Open a matrix gate.",
+   rail:{lede:"A ring counter (one flip-flop hot at a time) drives a hardwired NAND matrix that asserts the control lines for each instruction.",
+     meta:[["sequencer","6-step ring counter"],["decode","NAND matrix"],["opens","a NAND"]],
+     note:"Control is just more NAND and more flip-flops — the same two primitives, wired to steer the datapath."},
+   diagram:{vb:[960,520],
+     labels:[{x:230,y:70,t:"RING COUNTER  T1…T6",cls:"pin"},{x:700,y:70,t:"CONTROL MATRIX",cls:"pin"}],
+     wires:(()=>{let w=[];const cx=230,cy=280,r=120;let pts=[];for(let i=0;i<6;i++){let a=-Math.PI/2+i*Math.PI/3;pts.push([cx+r*Math.cos(a),cy+r*Math.sin(a)]);}for(let i=0;i<6;i++){let p=pts[i],q=pts[(i+1)%6];w.push([p[0],p[1],q[0],q[1],1]);}w.push([360,280,520,280,1]);return w;})(),
+     blocks:(()=>{let b=[];const cx=230,cy=280,r=120;for(let i=0;i<6;i++){let a=-Math.PI/2+i*Math.PI/3;b.push({x:cx+r*Math.cos(a)-26,y:cy+r*Math.sin(a)-18,w:52,h:36,label:"T"+(i+1),sub:""});}b.push({x:560,y:160,w:150,h:70,label:"NAND",sub:"decode",to:"gate_nand"});b.push({x:560,y:260,w:150,h:70,label:"NAND",sub:"decode"});b.push({x:760,y:210,w:150,h:70,label:"control lines",sub:"→ datapath"});return b;})()},
+   hint:"Open a <b>decode NAND</b>."},
+ gate_and:{layer:3,gate:true,kicker:"Gate · the carry bit",title:"AND",symbol:"AND",formula:"out = A ∧ B",truth:[["0","0","0"],["0","1","0"],["1","0","0"],["1","1","1"]],to:"gliders_and",toLabel:"See the AND gate as gliders",
+   blurb:"Output is 1 only when both inputs are 1. In the half-adder this is the carry. One layer down, it is two gliders that only produce an output when both arrive.",
+   rail:{lede:"AND is a coincidence detector. In gliders: a two-glider merge on a lane neither input reaches alone.",meta:[["role","carry bit"],["gliders","routed merge"]]}},
+ gate_xor:{layer:3,gate:true,kicker:"Gate · the sum bit",title:"XOR",symbol:"XOR",formula:"out = A ⊕ B",truth:[["0","0","0"],["0","1","1"],["1","0","1"],["1","1","0"]],to:"gliders_xor",toLabel:"See the XOR gate as gliders",
+   blurb:"Output is 1 when the inputs differ. This is the sum bit. In gliders it's two deleters that each cancel the other's data glider — a survivor means the bits differed.",
+   rail:{lede:"XOR is difference. In gliders: mutually-exclusive annihilations; whichever data glider survives is the sum.",meta:[["role","sum bit"],["gliders","routed XOR"]]}},
+ gate_or:{layer:3,gate:true,kicker:"Gate · merging carries",title:"OR",symbol:"OR",formula:"out = A ∨ B",truth:[["0","0","0"],["0","1","1"],["1","0","1"],["1","1","1"]],to:"gliders_nor",toLabel:"See the universal gate as gliders",
+   blurb:"Output is 1 if either input is. OR isn't a single glider reaction — but every gate reduces to one universal gate, NOR, which we have built physically. Descend to it.",
+   rail:{lede:"OR = NOT(AND(NOT a, NOT b)). Rather than a bespoke OR, everything reduces to the universal NOR — shown next in real gliders.",meta:[["role","carry merge"],["gliders","universal NOR"]]}},
+ gate_nand:{layer:3,gate:true,kicker:"Gate · the universal primitive",title:"NAND",symbol:"NAND",formula:"out = ¬(A ∧ B)",truth:[["0","0","1"],["0","1","1"],["1","0","1"],["1","1","0"]],to:"gliders_nor",toLabel:"See the universal gate as gliders",
+   blurb:"NAND alone can build any circuit — the whole CPU is made of it. Its glider cousin NOR is also universal, and that one we have verified physically. Descend to the bottom.",
+   rail:{lede:"NAND is functionally complete — the entire machine is copies of it. NOR is its dual and equally universal; here it is, in gliders.",meta:[["role","universal"],["builds","the whole CPU"],["gliders","physical NOR"]]}},
+ gliders_and:{layer:4,life:"AND",settle:130,title:"AND, in real gliders",kicker:"raw Conway's Life · B3/S23",
+   cap:"A physical AND gate. Two glider signals are steered by Snark reflectors onto a single collision; only when BOTH arrive do they fuse into one output glider, on a lane neither input ever reaches alone. This is the carry bit — no abstraction left, just cells.",
+   rail:{lede:"Verified in the bare rule: 4-row truth table, every catalyst (the still-life reflectors) restored exactly.",meta:[["rule","B3/S23"],["field","125 × 73"],["role","carry (A ∧ B)"]],
+     note:"This is the bottom. Everything above — the adder, the registers, the CPU — is patterns like this, tiled and timed."}},
+ gliders_xor:{layer:4,life:"XOR",settle:150,title:"XOR, in real gliders",kicker:"raw Conway's Life · B3/S23",
+   cap:"A physical XOR — the sum bit. A's data glider (top-left) sails down its lane; B's deleter (absent here) can't stop it, so the sum glider survives = 1. With both inputs, two deleters cancel both data gliders (sum 0). Real gliders, raw rule.",
+   rail:{lede:"The sum output of a half-adder, physically routed. Breaking the lane-parity wall that stops hand-building took a decoupled second duplicator.",meta:[["rule","B3/S23"],["field","520 × 559"],["role","sum (A ⊕ B)"]],
+     note:"Two of these XORs plus two ANDs make the full adder tiled eight times up in the ALU."}},
+ gliders_nor:{layer:4,life:"NOR",settle:130,title:"The universal gate, in gliders",kicker:"raw Conway's Life · B3/S23",
+   cap:"A physical NOR — universal, so any circuit is copies of this. Two constant 'carrier' gliders feed a merge; each real input is a deleter that annihilates its carrier. Here one input fires: watch its glider hunt down and annihilate a carrier. No reflector-merge — it routes around that wall with a constant carrier.",
+   rail:{lede:"NOR is functionally complete, like NAND — so this one verified field is, in principle, enough to build the whole machine.",meta:[["rule","B3/S23"],["field","125 × 73"],["role","universal gate"]],
+     note:"The CPU up top is {NAND, DFF}. This is that NAND's dual, alive in the cellular automaton."}},
+ gliders_mem:{layer:4,life:"MEM",settle:1528,title:"One bit, held forever",kicker:"raw Conway's Life · B3/S23",
+   cap:"A 1-bit memory — a single glider circling four Snark reflectors forever. Each reflector turns it 90° and restores itself, so the bit never decays. The pattern returns exactly to its start every 1528 generations. This is what a flip-flop IS, one layer down.",
+   rail:{lede:"Exactly periodic: run(state, 1528) == state, proven. A present glider = 1, held with zero drift. The first sequential (stateful) element, in gliders.",meta:[["rule","B3/S23"],["field","213 × 213"],["period","1528 gens"]],
+     note:"Combinational gates compute; this remembers. Together they're everything a processor needs."}}
+};
+let stack=["cpu"];
+const stage=document.getElementById("stage"), crumbsEl=document.getElementById("crumbs"), gaugeEl=document.getElementById("gauge"), railEl=document.getElementById("rail");
+let life=null;
+function cur(){return SCENES[stack[stack.length-1]];}
+function accentFor(layer){return ["--steel","--amber","--orange","--rose","--cyan"][layer];}
+function renderGauge(layer){gaugeEl.innerHTML="";L.forEach((name,i)=>{const d=document.createElement("div");d.className="rung"+(i===layer?" on":(i<layer?" done":""));d.innerHTML=`<span class="dot"></span>${esc(name)}`;gaugeEl.appendChild(d);});}
+function renderCrumbs(){crumbsEl.innerHTML="";stack.forEach((id,i)=>{if(i){const s=document.createElement("span");s.className="sep";s.textContent="›";crumbsEl.appendChild(s);}const b=document.createElement("button");b.className="crumb"+(i===stack.length-1?" here":"");b.textContent=SCENES[id].title;if(i<stack.length-1)b.onclick=()=>{stack=stack.slice(0,i+1);render(true);};crumbsEl.appendChild(b);});}
+function renderRail(sc){const r=sc.rail||{};let h=`<div><h2>${esc(L[sc.layer])}</h2><p class="lede">${r.lede||sc.blurb||""}</p></div>`;if(r.meta){h+=`<div class="meta">`;r.meta.forEach(m=>{h+=`<div class="mrow"><span class="k">${esc(m[0])}</span><span class="v ${m[2]||''}">${esc(m[1])}</span></div>`;});h+=`</div>`;}if(r.note)h+=`<div class="note">${r.note}</div>`;h+=`<button class="back" id="backbtn" ${stack.length<2?"disabled":""}>↑ zoom out</button>`;railEl.innerHTML=h;const bb=document.getElementById("backbtn");if(bb)bb.onclick=()=>{if(stack.length>1){stack.pop();render(true);}};}
+function gateSVG(sc){const shapes={AND:`<path class="blk" d="M180 120 h70 a80 80 0 0 1 0 160 h-70 z"/>`,NAND:`<path class="blk" d="M180 120 h70 a80 80 0 0 1 0 160 h-70 z"/><circle class="blk" cx="345" cy="200" r="12"/>`,OR:`<path class="blk" d="M170 120 q60 10 110 80 q-50 70 -110 80 q40 -80 0 -160 z"/>`,XOR:`<path class="blk" d="M185 120 q60 10 110 80 q-50 70 -110 80 q40 -80 0 -160 z"/><path class="wire" style="stroke:var(--layer)" d="M160 120 q40 80 0 160"/>`};
+  return `<svg class="diagram" viewBox="0 0 520 400" preserveAspectRatio="xMidYMid meet" style="max-height:38vh"><path class="wire" style="stroke:var(--layer)" d="M110 160 h70"/><path class="wire" style="stroke:var(--layer)" d="M110 240 h${sc.symbol==='OR'||sc.symbol==='XOR'?'75':'70'}"/><path class="wire" style="stroke:var(--layer)" d="M${sc.symbol==='NAND'?'357':'330'} 200 h80"/><text class="pin" x="95" y="164" text-anchor="end">A</text><text class="pin" x="95" y="244" text-anchor="end">B</text><text class="pin" x="450" y="204">out</text>${shapes[sc.symbol]||shapes.AND}<text class="blk-l" x="245" y="205" text-anchor="middle" style="font-size:18px">${esc(sc.title)}</text></svg>`;}
+function buildScene(sc){const scene=document.createElement("div");scene.className="scene enter";
+  if(sc.life){scene.innerHTML=`<div class="lifewrap"><canvas id="life"></canvas><div class="lifecap"><div class="kicker">${esc(sc.kicker)}</div><h1>${esc(sc.title)}</h1><p>${esc(sc.cap)}</p></div><div class="lifehud"><span class="badge" id="gen">gen 0</span><span class="badge" id="pop">0 cells</span></div><div class="lifectl"><button id="lp">⏸</button><button id="lr">↺ reset</button><button id="lf">⤢ fit</button></div></div>`;return scene;}
+  if(sc.gate){let tt=`<table class="gate-truth"><tr><th>A</th><th>B</th><th>out</th></tr>`;sc.truth.forEach(r=>tt+=`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td class="out">${esc(r[2])}</td></tr>`);tt+=`</table>`;
+    scene.innerHTML=`<div class="scenehead"><div class="kicker">${esc(sc.kicker)}</div><h1>${esc(sc.title)} gate</h1><p>${esc(sc.blurb)}</p></div>${gateSVG(sc)}<div style="display:flex;gap:28px;align-items:center;flex-wrap:wrap;justify-content:center"><div style="font-family:var(--font-mono);color:var(--dim);font-size:14px">${esc(sc.formula)}</div>${tt}</div><button class="descend" data-to="${sc.to}"><span class="big">↓</span> ${esc(sc.toLabel)}</button>`;return scene;}
+  scene.innerHTML=`<div class="scenehead"><div class="kicker">${esc(sc.kicker)}</div><h1>${esc(sc.title)}</h1><p>${esc(sc.blurb)}</p></div>${diagramSVG(sc.diagram)}${sc.hint?`<div class="hint">${sc.hint} &nbsp;·&nbsp; click to zoom in</div>`:""}`;return scene;}
+function startLife(sc){const cv=document.getElementById("life"),g=cv.getContext("2d");
+  let cells=parseRLE(RLE[sc.life]),seed=new Set(cells),gen=0,playing=true,scale=4,camx=0,camy=0;
+  function fit(){const[x0,y0,x1,y1]=bbox(seed);const bw=Math.max(1,x1-x0+1),bh=Math.max(1,y1-y0+1);const r=cv.getBoundingClientRect();cv.width=r.width;cv.height=r.height;scale=Math.max(.6,Math.min(cv.width/(bw+30),cv.height/(bh+30)));camx=(x0+x1)/2;camy=(y0+y1)/2;}
+  function draw(){g.fillStyle="rgba(3,6,11,0.20)";g.fillRect(0,0,cv.width,cv.height);const r=Math.max(1.4,scale-0.5);g.fillStyle="#7ff0ff";g.shadowColor="#4fe3ff";g.shadowBlur=Math.min(9,scale*1.6);for(const k of cells){const[x,y]=unkey(k);const sx=cv.width/2+(x-camx)*scale,sy=cv.height/2+(y-camy)*scale;if(sx<-4||sy<-4||sx>cv.width+4||sy>cv.height+4)continue;g.fillRect(sx,sy,r,r);}g.shadowBlur=0;const ge=document.getElementById("gen"),pe=document.getElementById("pop");if(ge)ge.textContent="gen "+gen;if(pe)pe.textContent=cells.size+" cells";}
+  let acc=0,last=performance.now();
+  function frame(now){if(!life||life.id!==sc)return;const dt=now-last;last=now;if(playing){acc+=dt;while(acc>=24){cells=step(cells);gen++;acc-=24;if(gen>=sc.settle){cells=new Set(seed);gen=0;}}}draw();requestAnimationFrame(frame);}
+  g.fillStyle="#03060b";g.fillRect(0,0,cv.width||10,cv.height||10);fit();draw();requestAnimationFrame(frame);
+  life={id:sc,toggle:()=>{playing=!playing;const b=document.getElementById("lp");if(b)b.textContent=playing?"⏸":"▶";},reset:()=>{cells=new Set(seed);gen=0;},fit:()=>fit()};
+  document.getElementById("lp").onclick=()=>life.toggle();document.getElementById("lr").onclick=()=>life.reset();document.getElementById("lf").onclick=()=>life.fit();
+  window.addEventListener("resize",()=>{if(life&&life.id===sc)fit();});}
+function wireHotspots(scene){scene.querySelectorAll("[data-to]").forEach(el=>el.addEventListener("click",()=>enter(el.getAttribute("data-to"))));}
+function enter(id){if(!SCENES[id])return;stack.push(id);render(true);}
+function render(animateOut){const sc=cur();document.documentElement.style.setProperty("--layer","var("+accentFor(sc.layer)+")");renderGauge(sc.layer);renderCrumbs();renderRail(sc);life=null;const old=stage.firstElementChild;const swap=()=>{stage.innerHTML="";const scene=buildScene(sc);stage.appendChild(scene);wireHotspots(scene);if(sc.life)startLife(sc);};const reduce=window.matchMedia("(prefers-reduced-motion:reduce)").matches;if(old&&animateOut&&!reduce){old.classList.remove("enter");old.classList.add("leave");setTimeout(swap,260);}else swap();}
+document.getElementById("theme").onclick=()=>{const root=document.documentElement;const c=root.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light");root.setAttribute("data-theme",c==="dark"?"light":"dark");const sc=cur();document.documentElement.style.setProperty("--layer","var("+accentFor(sc.layer)+")");};
+render(false);
+</script>
