@@ -28,6 +28,7 @@ from gadgets import split_gliders, glider_dir, glider_lane, DIRNAME
 import gates
 from routed import (build_variants, build_rung3, verify_and_reaction, settle,
                     traj_params, backcast, bbox_gap, _causal_outcome, to_rle)
+from router import route_from
 
 DIRVEC = {(1, 1): 'SE', (-1, 1): 'SW', (1, -1): 'NE', (-1, -1): 'NW'}
 
@@ -109,54 +110,91 @@ def verify_nor(cfg):
     return allok, notes
 
 
+def isolate(field, cats, wantdir, lane=None, gap=6, tmax=2600):
+    """Run `field` until it holds exactly one glider (direction wantdir, optional lane)
+    clear of `cats` by `gap`, catalysts restored. Returns (glider_state, T) or (None,T)."""
+    s = set(field); cats = set(cats); T = 0
+    while T < tmax:
+        s = run(s, 15); T += 15
+        gs, rest = split_gliders(s)
+        if rest == cats and len(gs) == 1 and glider_dir(gs[0]) == wantdir \
+                and bbox_gap(gs[0], cats) >= gap \
+                and (lane is None or glider_lane(gs[0]) == lane):
+            return set(gs[0]), T
+    return None, T
+
+
+def isolate_m(cfg, extra=frozenset(), wantdir=(-1, -1), lane=None, gap=6, tmax=2600):
+    """Isolate the NOR output m from the a=b=0 field (+extra catalysts)."""
+    return isolate(nor_field(cfg, 0, 0) | set(extra), set(cfg['cats']) | set(extra),
+                   wantdir, lane, gap, tmax)
+
+
 def build_or(V, tau_and):
-    """OR = NOT(NOR): a constant carrier C_out that the NOR output m deletes."""
+    """OR = NOT(NOR). The output NOT would pin its carrier onto an SE lane inside the
+    machine band, disrupting the merge — so first turn m (NW) RIGHT into an NE lane
+    with x+y < 0 (m flown far up-left first, where its x+y is already negative). An NE
+    glider keeps x+y constant, so it and the output-NOT's SW carrier stay off the
+    machine's x+y band [0,124] forever. Place the output-NOT out there."""
     cfg = build_nor(V, tau_and)
     cats = cfg['cats']
-    # get m (the AND/NOR output) as a clean isolated glider, clear of the catalysts
-    s = nor_field(cfg, 0, 0); T_m = 0
-    while T_m < 900:
-        s = run(s, 15); T_m += 15
-        gs, rest = split_gliders(s)
-        if rest == cats and len(gs) == 1 and glider_dir(gs[0]) == (-1, -1) \
-                and bbox_gap(gs[0], cats) >= 6:
-            m_state = set(gs[0]); break
-    else:
-        raise AssertionError("couldn't isolate the NOR output m")
-    # the SE glider that m annihilates (validated against the catalysts) IS C_out,
-    # backcast to t=0 so it is present from the start and meets m at time T_m.
-    d = deleter_for(m_state, context=cats, T=900)
-    assert d, "no clean carrier C_out (deleter for m) found"
-    C_out = set(backcast(d, T_m))
-    L_out = glider_lane(d)
-    assert L_out not in (cfg['L_A'], cfg['L_SW']), "C_out lane collides with a junk rail"
-    cfg.update(C_out=C_out, L_out=L_out, T_m=T_m)
+    m0, _ = isolate_m(cfg, gap=8)                # m: clean NW glider (lane 43)
+    assert m0, "couldn't isolate the NOR output m"
+
+    routing = m_far = T_far = L_far = None
+    for along in range(40, 360, 12):             # turn further up-left => more negative x+y
+        rr = route_from(m0, [('R', along)])      # NW -> NE
+        if rr is None:
+            continue
+        rcats, mfin, _ = rr
+        Lne = glider_lane(mfin)                   # NE rides lane x+y
+        if Lne >= -8 or bbox_gap(rcats, cats) < 6:   # want it clearly below the band
+            continue
+        mf, Tf = isolate_m(cfg, extra=rcats, wantdir=(1, -1), lane=Lne, gap=10)
+        if mf is not None:
+            routing, m_far, T_far, L_far = rcats, mf, Tf, Lne
+            break
+    assert routing is not None, "couldn't turn m onto a clear x+y<0 NE lane"
+
+    allcats = cats | routing
+    d = deleter_for(m_far, context=allcats, T=1000)   # the SW carrier m_far annihilates
+    assert d, "no clean carrier C_out for the routed m"
+    C_out = set(backcast(d, T_far))
+    L_out = glider_lane(d)                         # C_out (SW) also rides an x+y lane
+    assert bbox_gap(C_out, allcats) >= 4
+    cfg.update(routing=routing, allcats=allcats, C_out=C_out, L_out=L_out,
+               L_far=L_far, T_far=T_far)
+    # DEAD END (documented): the surviving C_out (OR=1) flies SW back into the turn-Snark
+    # S1, and the annihilation geometry pins C_out's lane within ~3 of m's, so any escape
+    # Snark also clips m. A standalone output-NOT can't escape here. The working path is
+    # the 2-machine composition in routed_nor_compose.py (OR's output = a clean AND-merge).
+    cfg.update(escape=set(), out_dir='SW', out_lane=L_out)
     return cfg
 
 
 def or_field(cfg, a, b):
-    return nor_field(cfg, a, b) | cfg['C_out']
+    return nor_field(cfg, a, b) | cfg['routing'] | cfg['C_out'] | cfg.get('escape', set())
 
 
 def verify_or(cfg):
-    """OR(a,b): the carrier C_out (SE on L_out) survives iff a OR b. 4-row raw check."""
-    cats, L_out = cfg['cats'], cfg['L_out']
+    """OR(a,b): the output glider survives iff a OR b. 4-row raw check. When OR=1, junk
+    rails (a_in / b_in survivors) also escape; listed in expect."""
+    allcats = cfg['allcats']
     L_A, L_SW, tA = cfg['L_A'], cfg['L_SW'], cfg['tA']
-    out = ('SE', L_out)
-    rows = {(0, 0): [],                       # OR=0: C_out deleted by m, nothing else
-            (0, 1): sorted([out, ('SE', L_A)]),   # OR=1: C_out + a_in junk
-            (1, 0): sorted([out, ('SW', L_SW)]),  # OR=1: C_out + b_in junk
-            (1, 1): [out]}                    # OR=1: C_out only
+    out = (cfg['out_dir'], cfg['out_lane'])        # the routed OR output port
+    rows = {(0, 0): [],                            # OR=0: C_out deleted by routed m
+            (0, 1): sorted([out, ('SE', L_A)]),    # OR=1: output + a_in junk
+            (1, 0): sorted([out, ('SW', L_SW)]),   # OR=1: output + b_in junk
+            (1, 1): [out]}                         # OR=1: output only
     notes, allok = [], True
     for (a, b), expect in rows.items():
-        ok, t, _, _ = settle(or_field(cfg, a, b), cats, expect,
-                             t_min=tA + 60, t_max=tA + 1200)
+        ok, t, _, _ = settle(or_field(cfg, a, b), allcats, expect,
+                             t_min=tA + 60, t_max=cfg['T_far'] + 1700)
         allok &= ok
-        want = a | b
         got = 1 if (out in expect) else 0
-        notes.append(f"a={a} b={b} -> OR={got} (want {want}); output "
-                     f"{'present' if got else 'absent'} on SE lane {L_out}, "
-                     f"survivors={expect}, catalysts restored, t={t}: {ok}")
+        notes.append(f"a={a} b={b} -> OR={got} (want {a | b}); output "
+                     f"{'present' if got else 'absent'} on {out[0]} lane {out[1]}, "
+                     f"catalysts restored, t={t}: {ok}")
     return allok, notes
 
 
