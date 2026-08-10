@@ -57,6 +57,9 @@
   .horizon h2{margin:0;font-size:17px;color:var(--rose)}
   .horizon p{margin:10px 0 0;color:var(--dim);font-size:14.5px}
   .foot{margin:40px 0 0;color:var(--faint);font-size:12.5px;border-top:1px solid var(--edge);padding-top:18px}
+.demo{display:block;width:100%;height:132px;background:#03060b;border:1px solid var(--edge);border-radius:10px;margin:14px 0 2px}
+  .hero-demo{height:172px;margin:20px 0 2px}
+  .demo-cap{font-family:var(--mono);font-size:11px;color:var(--faint);margin:5px 0 0;letter-spacing:.02em}
 </style>
 </head>
 <body>
@@ -66,6 +69,9 @@
     claim is checked by <em>running the raw automaton</em>. Two universes, one story: Wireworld
     (built to compute) and Conway's Life (the barest rule there is). This is the ladder from that
     rule to a processor that runs real programs.</p>
+
+  <canvas class="demo hero-demo" data-seed="gun" data-period="150" aria-label="A glider gun firing a stream of gliders in Conway's Life"></canvas>
+  <p class="demo-cap">&uarr; a glider gun, live in the raw rule &mdash; one signal every 30 ticks. everything below is built from these.</p>
 
   <a href="machine-explorer.html" style="display:block;margin:22px 0 4px;padding:18px 22px;border:1px solid #6b4dff;border-radius:14px;background:linear-gradient(100deg,rgba(107,77,255,.16),rgba(63,233,255,.08));text-decoration:none;color:inherit">
     <div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#9d8bff">Start here · interactive</div>
@@ -96,6 +102,7 @@
         <p>Where signals meet, the rule <em>is</em> logic. In Life, gates are literally glider
           <b>collisions</b> — two gliders annihilate (that's NOT / inhibit), or merge into one only
           when both are present (that's AND). From them, NAND — the universal gate.</p>
+        <canvas class="demo" data-seed="and" data-period="128" aria-label="A routed AND gate computing in Conway's Life"></canvas>
         <div class="links">
           <a class="chip" href="glider-logic/glider-logic.html">▸ Watch gliders compute NOT / AND / XOR</a>
         </div>
@@ -112,6 +119,7 @@
           adder</b>, ran it 2²⁰ generations on a hashlife cross-checked against our engine, and
           decoded its output streams — <b>6 + 5 = 11</b>, entirely in gliders. A live slice of it
           runs in the viewer.</p>
+        <canvas class="demo" data-seed="xor" data-period="150" aria-label="A routed XOR (the sum bit) in Conway's Life"></canvas>
         <div class="links">
           <a class="chip amber" href="glider-logic/glider-logic.html">▸ "Add a bit" — a half-adder in gliders</a>
           <a class="chip amber" href="glider-logic/life-viewer.html">▸ Watch a slice of the real adder</a>
@@ -130,6 +138,7 @@
           they are a <b>half-adder</b>, and two half-adders a <b>full adder</b>. Rippling those computes
           <b>10-bit addition</b> — 511+1=512, 682+341=1023 — every bit run through the routed cell in the
           bare rule. Whole truth tables exact, every catalyst restored to the cell.</p>
+        <canvas class="demo" data-seed="and" data-period="128" aria-label="A glider routed through Snark reflectors into an AND gate"></canvas>
         <div class="links">
           <a class="chip violet" href="glider-logic/life-viewer.html">▸ Watch the routed XOR / AND run</a>
           <a class="chip violet" href="glider-logic/real-adder.html">▸ Watch the REAL glider half-adder compute</a>
@@ -144,7 +153,9 @@
         <p>In Wireworld — the CA built for circuits — the gates compose into a genuine <b>CPU</b>:
           <b>SAP-1</b> and the bigger <b>SAP-2</b> (256 bytes, a stack, ~35 instructions), each one
           flat netlist of just a NAND gate and a D flip-flop. It runs multiply, divide, GCD, primes,
-          bubble-sort, Fibonacci — watchable live, register by register.</p>
+          bubble-sort, Fibonacci — watchable live, register by register. <b>This CPU is a Wireworld
+          machine</b> — a separate build from the glider logic above; the gliders demonstrate the
+          <em>same</em> gates one universe deeper, in raw Conway's Life, not that this processor runs on them.</p>
         <div class="links">
           <a class="chip" href="cpu/cpu.html">▸ SAP-1 front panel</a>
           <a class="chip" href="cpu/cpu2.html">▸ SAP-2 debugger</a>
@@ -177,5 +188,21 @@
     cellular automaton itself — source at
     <a href="https://github.com/Olivesz/emergence">github.com/Olivesz/emergence</a>. From "3 to be
     born, 2 to survive" to a machine that computes.</p>
+<script>
+(function(){
+var key=function(x,y){return x+','+y;},unkey=function(k){var i=k.indexOf(',');return [+k.slice(0,i),+k.slice(i+1)];};
+function step(c){var nb=new Map();c.forEach(function(k){var p=unkey(k),x=p[0],y=p[1];for(var dx=-1;dx<=1;dx++)for(var dy=-1;dy<=1;dy++){if(!dx&&!dy)continue;var kk=key(x+dx,y+dy);nb.set(kk,(nb.get(kk)||0)+1);}});var nx=new Set();nb.forEach(function(v,k){if(v===3||(v===2&&c.has(k)))nx.add(k);});return nx;}
+function bbox(c){var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;c.forEach(function(k){var p=unkey(k);if(p[0]<x0)x0=p[0];if(p[1]<y0)y0=p[1];if(p[0]>x1)x1=p[0];if(p[1]>y1)y1=p[1];});return c.size?[x0,y0,x1,y1]:[0,0,0,0];}
+function parseRLE(t){var s=new Set(),x=0,y=0,num='';var b=t.split('\n').filter(function(l){return l[0]!=='#';}).join('\n');if(/x\s*=/.test(b.split('\n')[0]))b=b.substring(b.indexOf('\n')+1);b=b.replace(/\s+/g,'');for(var i=0;i<b.length;i++){var ch=b[i];if(ch>='0'&&ch<='9'){num+=ch;continue;}var nn=num?+num:1;num='';if(ch==='b')x+=nn;else if(ch==='o'){for(var j=0;j<nn;j++)s.add(key(x++,y));}else if(ch==='$'){y+=nn;x=0;}else if(ch==='!')break;}return s;}
+var SEEDS={gun:'x = 36, y = 9, rule = B3/S23\n24bo$22bobo$12b2o6b2o12b2o$11bo3bo4b2o12b2o$2o8bo5bo3b2o$2o8bo3bob2o4bobo$10bo5bo7bo$11bo3bo$12b2o!',and:'x = 125, y = 73, rule = B3/S23\nobo$b2o$bo13$63b2o3b2o$63b2o2bob3o$67bo4bo$63b4ob2o2bo$63bo2bobobob2o$\n66bobobobo$67b2obobo$71bo2$57b2o$58bo7b2o$58bobo5b2o$59b2o7$69b2o$69bo\n$70b3o$72bo8$50b2o$49bobo$51bo9$115bo$113b3o$112bo$112b2o3$120b2ob2o$1\n21bob2o$121bo$113b2o4b3o$113b2o3bo3b2o$118b4o2bo$104b2o15bob2o$103bobo\n12b3o2bo$103bo13bo5bo$102b2o14b5o$120bo!',xor:'x = 520, y = 559, rule = B3/S23\nobo$b2o$bo24$51b2o$52bo$52bobo$42bo10b2o$40b3o$39bo$39b2o$24b2o48b2o$2\n5bo48b2o$25bob2o$26bo2bo$27b2o$42b2o$42b2o4$51bo3b2o$50bobo3bo$49bobo3\nbo$45b2obobo3bo$45b2obo2b4obo5b2o$49bobo3bobo5bo$45b2ob2o2bo2bobo2b3o$\n46bobo2b2o3bo3bo$34b2o10bobo$34b2o11bo34$102b2o$103bo$103bobo$104b2o11\n8$201b2o$202bo$202bobo$192bo10b2o$190b3o$189bo$189b2o$174b2o48b2o$175b\no48b2o$175bob2o$176bo2bo$177b2o$192b2o$192b2o4$201bo3b2o$200bobo3bo$19\n9bobo3bo$195b2obobo3bo$195b2obo2b4obo5b2o$199bobo3bobo5bo$195b2ob2o2bo\n2bobo2b3o$196bobo2b2o3bo3bo$184b2o10bobo$184b2o11bo32$250b2o$251bo$251\nbobo$252b2o237$443bobo$444b2o$444bo25$495b2o$496bo$496bobo$486bo10b2o$\n484b3o$483bo$483b2o$468b2o48b2o$469bo48b2o$469bob2o$470bo2bo$471b2o$48\n6b2o$486b2o4$495bo3b2o$494bobo3bo$493bobo3bo$489b2obobo3bo$489b2obo2b4\nobo5b2o$493bobo3bobo5bo$489b2ob2o2bo2bobo2b3o$490bobo2b2o3bo3bo$478b2o\n10bobo$478b2o11bo!'};
+function run(cv){var name=cv.dataset.seed,period=+cv.dataset.period||150,pad=name==='gun'?34:14;var g=cv.getContext('2d');var seed=parseRLE(SEEDS[name]);var cells=new Set(seed),gen=0,scale=3,camx=0,camy=0;
+function fit(){var dpr=Math.min(window.devicePixelRatio||1,2),r=cv.getBoundingClientRect();cv.width=Math.max(1,(r.width*dpr)|0);cv.height=Math.max(1,(r.height*dpr)|0);var bb=bbox(seed),bw=(bb[2]-bb[0]+1)+pad*2,bh=(bb[3]-bb[1]+1)+pad*2;scale=Math.min(cv.width/bw,cv.height/bh);if(scale<1)scale=1;camx=(bb[0]+bb[2])/2;camy=(bb[1]+bb[3])/2;}
+function draw(){g.fillStyle='rgba(3,6,11,0.30)';g.fillRect(0,0,cv.width,cv.height);var r=Math.max(1.3,scale-0.4);g.fillStyle='#7ff0ff';g.shadowColor='#3fe9ff';g.shadowBlur=Math.min(7,scale);cells.forEach(function(k){var p=unkey(k),sx=cv.width/2+(p[0]-camx)*scale,sy=cv.height/2+(p[1]-camy)*scale;if(sx<-3||sy<-3||sx>cv.width+3||sy>cv.height+3)return;g.fillRect(sx,sy,r,r);});g.shadowBlur=0;}
+fit();g.fillStyle='#03060b';g.fillRect(0,0,cv.width,cv.height);draw();var acc=0,last=performance.now();
+function frame(now){var dt=now-last;last=now;acc+=dt;var st=0;while(acc>=42&&st<8){cells=step(cells);gen++;acc-=42;st++;if(gen>=period){cells=new Set(seed);gen=0;}}draw();requestAnimationFrame(frame);}
+requestAnimationFrame(frame);window.addEventListener('resize',fit,{passive:true});}
+document.querySelectorAll('canvas.demo').forEach(run);
+})();
+</script>
 </body>
 </html>

@@ -150,13 +150,13 @@ canvas#life{position:absolute;inset:0;width:100%;height:100%;display:block}
 <div class="intro" id="intro">
   <div class="intro-card">
     <div class="eyebrow">Emergence · start here</div>
-    <h1>This is a computer made of dots.</h1>
-    <p>What you're looking at is a real, working processor &mdash; the same idea as the chip in your phone, just small and slow enough to watch. It runs actual programs.</p>
-    <p>The strange part: zoom into any piece of it and you'll find it's built from smaller pieces, and smaller ones, until at the very bottom there is nothing but dots on a grid, blinking on and off.</p>
-    <p>Those dots obey one rule &mdash; Conway's <i>Game&nbsp;of&nbsp;Life</i>: a dot switches on when exactly three of its neighbours are on, and stays on with two or three. That is the <b>entire</b> law of physics here. No wires, no electricity.</p>
-    <p>The little gliding shapes are <b>gliders</b> &mdash; patterns that travel across the grid. They carry the 1s and 0s, and where two of them collide, the rule decides what survives. <b>That collision is a logic gate.</b> Stack enough of them and you get arithmetic, memory, a whole CPU.</p>
-    <p class="dim">The point isn't the chip &mdash; it's that computation falls out of almost nothing.</p>
-    <div class="how"><b>How to explore:</b> click any <b>glowing</b> block to zoom one layer deeper. Use the trail along the top to climb back out. The deeper you go, the closer you get to the raw, living dots at the bottom.</div>
+    <h1>Zoom a computer down to single gliders.</h1>
+    <p>What you're looking at is a real, working processor &mdash; it runs actual programs. It's a <b>Wireworld</b> machine: every part is one of just two building blocks, a NAND gate and a one-bit memory cell.</p>
+    <p>Zoom into any piece and it opens into smaller pieces &mdash; registers, adders, gates &mdash; until you reach a single <b>logic gate</b>, the atom of computing.</p>
+    <p>Then the last step drops a whole universe lower. That same gate can be built in the simplest cellular automaton there is &mdash; Conway's <i>Game&nbsp;of&nbsp;Life</i>, where a dot lives only by counting its neighbours. One rule; no wires, no electricity.</p>
+    <p>There a logic gate is nothing but colliding <b>gliders</b> &mdash; little shapes that travel and carry the 1s and 0s. This is <em>not</em> the substrate this particular CPU runs on &mdash; it's a separate build, and proof that the <b>same logic</b> reaches all the way down to one napkin rule.</p>
+    <p class="dim">Two machines, one truth: computation falls out of almost nothing.</p>
+    <div class="how"><b>How to explore:</b> click any <b>glowing</b> block to zoom one layer deeper. Use the trail along the top to climb back out. The deeper you go, the simpler the substrate &mdash; until, at the floor, it's just gliders under a single rule.</div>
     <button class="intro-begin" id="introBegin">Begin the descent &darr;</button>
   </div>
 </div>
@@ -254,8 +254,8 @@ const L=["Machine","Datapath","Logic block","Gate","Gliders"];
 const SCENES={
  cpu:{layer:0,kicker:"SAP-1 · Wireworld processor",title:"A working CPU",
    blurb:"A real Simple-As-Possible processor — it runs programs (here, 5 + 3 → 8). Every block below is built from just two primitives: a NAND gate and a D flip-flop. Click a highlighted block to open it.",
-   rail:{lede:"The whole machine is 1,446 NAND gates + 175 flip-flops — and each of those is, one layer down, a pattern of gliders in Conway's Life.",
-     meta:[["substrate","Wireworld → Life"],["primitives","NAND + DFF"],["gates","1,446"],["flip-flops","175"],["program","5 + 3 → 8"]],
+   rail:{lede:"The whole machine is 1,446 NAND gates + 175 flip-flops — a Wireworld circuit. Drill to a single gate; the floor then shows that same gate rebuilt one universe deeper, in Conway's Life gliders — a separate build, proof the logic bottoms out in the simplest rule.",
+     meta:[["substrate","Wireworld"],["deepest view","Conway's Life"],["primitives","NAND + DFF"],["gates","1,446"],["flip-flops","175"],["program","5 + 3 → 8"]],
      note:"Hand-wiring gates into a CPU hits a hazard wall; the fix is a <b>synchronous</b> discipline — latch every signal once per clock. That's why the whole machine reduces to {NAND, DFF}."},
    diagram:{vb:[960,600],
      wires:[[320,112,450,112,1],[320,300,450,300,1],[640,112,510,112,1],[640,300,510,300,1],[320,500,450,500,1],[640,410,510,410,1],[320,410,450,410],[640,210,510,210,1]],
@@ -333,7 +333,7 @@ const SCENES={
      blocks:(()=>{let b=[{x:110,y:150,w:190,h:230,label:"Decoder",sub:"4 → 16 select",to:"gate_nand"}];for(let i=0;i<6;i++){let y=110+i*58;b.push(Object.assign({x:430,y:y,w:360,h:44,label:i<5?("byte "+i):"⋮ 16 total",sub:""},i===0?{to:"register"}:{}));}return b;})()},
    hint:"Open a <b>byte</b> (a register) or the <b>decoder</b> (gates)."},
  gate_and:{layer:3,gate:true,kicker:"Gate · the carry bit",title:"AND",symbol:"AND",formula:"out = A ∧ B",truth:[["0","0","0"],["0","1","0"],["1","0","0"],["1","1","1"]],to:"gliders_and",toLabel:"See the AND gate as gliders",
-   blurb:"Output is 1 only when both inputs are 1. In the half-adder this is the carry. One layer down, it is two gliders that only produce an output when both arrive.",
+   blurb:"Output is 1 only when both inputs are 1. In the half-adder this is the carry. The same gate, rebuilt one universe deeper in Conway's Life, is two gliders that only produce an output when both arrive.",
    rail:{lede:"AND is a coincidence detector. In gliders: a two-glider merge on a lane neither input reaches alone.",meta:[["role","carry bit"],["gliders","routed merge"]]}},
  gate_xor:{layer:3,gate:true,kicker:"Gate · the sum bit",title:"XOR",symbol:"XOR",formula:"out = A ⊕ B",truth:[["0","0","0"],["0","1","1"],["1","0","1"],["1","1","0"]],to:"gliders_xor",toLabel:"See the XOR gate as gliders",
    blurb:"Output is 1 when the inputs differ. This is the sum bit. In gliders it's two deleters that each cancel the other's data glider — a survivor means the bits differed.",
@@ -347,7 +347,7 @@ const SCENES={
  gliders_and:{layer:4,life:"AND",settle:130,title:"AND, in real gliders",kicker:"raw Conway's Life · B3/S23",
    cap:"A physical AND gate. Two glider signals are steered by Snark reflectors onto a single collision; only when BOTH arrive do they fuse into one output glider, on a lane neither input ever reaches alone. This is the carry bit — no abstraction left, just cells.",
    rail:{lede:"Verified in the bare rule: 4-row truth table, every catalyst (the still-life reflectors) restored exactly.",meta:[["rule","B3/S23"],["field","125 × 73"],["role","carry (A ∧ B)"]],
-     note:"This is the bottom. Everything above — the adder, the registers, the CPU — is patterns like this, tiled and timed."}},
+     note:"This is the floor. The CPU up top is a Wireworld machine; this is the same logic gate one universe deeper, in Conway's Life — the same computation, the simplest possible rule."}},
  gliders_xor:{layer:4,life:"XOR",settle:150,title:"XOR, in real gliders",kicker:"raw Conway's Life · B3/S23",
    cap:"A physical XOR — the sum bit. A's data glider (top-left) sails down its lane; B's deleter (absent here) can't stop it, so the sum glider survives = 1. With both inputs, two deleters cancel both data gliders (sum 0). Real gliders, raw rule.",
    rail:{lede:"The sum output of a half-adder, physically routed. Breaking the lane-parity wall that stops hand-building took a decoupled second duplicator.",meta:[["rule","B3/S23"],["field","520 × 559"],["role","sum (A ⊕ B)"]],
@@ -357,7 +357,7 @@ const SCENES={
    rail:{lede:"NOR is functionally complete, like NAND — so this one verified field is, in principle, enough to build the whole machine.",meta:[["rule","B3/S23"],["field","125 × 73"],["role","universal gate"]],
      note:"The CPU up top is {NAND, DFF}. This is that NAND's dual, alive in the cellular automaton."}},
  gliders_mem:{layer:4,life:"MEM",settle:1528,title:"One bit, held forever",kicker:"raw Conway's Life · B3/S23",
-   cap:"A 1-bit memory — a single glider circling four Snark reflectors forever. Each reflector turns it 90° and restores itself, so the bit never decays. The pattern returns exactly to its start every 1528 generations. This is what a flip-flop IS, one layer down.",
+   cap:"A 1-bit memory — a single glider circling four Snark reflectors forever. Each reflector turns it 90° and restores itself, so the bit never decays. The pattern returns exactly to its start every 1528 generations. It does a flip-flop's job — holding one bit — one universe deeper, in gliders.",
    rail:{lede:"Exactly periodic: run(state, 1528) == state, proven. A present glider = 1, held with zero drift. The first sequential (stateful) element, in gliders.",meta:[["rule","B3/S23"],["field","213 × 213"],["period","1528 gens"]],
      note:"Combinational gates compute; this remembers. Together they're everything a processor needs."}}
 };
