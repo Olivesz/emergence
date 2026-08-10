@@ -33,8 +33,7 @@ FA(A, B, Cin) -> (sum, cout):
 
 8-row truth table `(A,B,Cin) -> (sum, cout)` by raw B3/S23, using the *final-only*
 `settle()` (exact catalyst restoration + survivor dir/lane match + forever-escape).
-During iteration use **bounded** sims (fixed tick count), never open-ended loops —
-see [[agent-slow-verify-credit-bomb]].
+During iteration use **bounded** sims (fixed tick count), never open-ended loops.
 
 ## Multi-bit (toward 11-bit)
 
