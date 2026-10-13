@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
-"""Full adder and multi-bit ripple adder, composed from the physically-routed
-HALF-ADDER (ha_full.build_half_adder) — every gate evaluated in raw B3/S23.
+"""A full adder and multi-bit sums from the physically-routed HALF-ADDER
+(ha_full.build_half_adder), which is re-run in raw B3/S23 for every use.
 
   FA(A,B,Cin):  HA1(A,B) -> s1,c1 ;  HA2(s1,Cin) -> sum,c2 ;  cout = c1 OR c2
-  (c1=A&B and c2=(A^B)&Cin are mutually exclusive, so OR is a lane merge.)
 
-Inter-stage signals (s1, ripple carries) are passed by the harness — the same
-disclosed convention gates.py's reaction-level adder uses; each half-adder itself
-is the real routed cell, re-run in the raw rule for every bit.  BOUNDED sims."""
+The half-adders are the routed glider cell. What connects them is Python: it
+hands s1 from one run to the next, ORs c1 and c2, and passes each column's
+carry to the next column, as gates.py's reaction-level adder does."""
 import time
 from life import run
 from ha_full import build_half_adder, _surv
@@ -65,10 +64,11 @@ def main():
                 ok = (sm == want_s) and (co == want_c); allok &= ok
                 print(f"  A={A} B={B} Cin={Cin} -> sum={sm} cout={co} "
                       f"(want {want_s},{want_c}) {'OK' if ok else 'FAIL'}", flush=True)
-    print("FULL ADDER (from routed half-adder):", "PASS" if allok else "FAIL", flush=True)
+    print("FULL ADDER (two routed half-adder runs, carries ORed in Python):",
+          "PASS" if allok else "FAIL", flush=True)
     lap("full adder verified")
 
-    # ---- multi-bit ripple adds (raw rule, every bit) ----
+    # ---- multi-bit sums: the routed half-adder per bit, carries passed in Python ----
     cases = [(6, 5, 4), (511, 1, 10), (682, 341, 10)]
     mok = True
     for a, b, w in cases:
@@ -76,7 +76,8 @@ def main():
         got = val(out); want = a + b
         ok = (got == want); mok &= ok
         print(f"  {a} + {b} = {got} (want {want}) [{w}-bit] {'OK' if ok else 'FAIL'}", flush=True)
-    print("\nRIPPLE ADDER (routed cells, raw rule):", "PASS" if (allok and mok) else "FAIL")
+    print("\nMULTI-BIT SUMS (routed half-adder per bit, carries passed in Python):",
+          "PASS" if (allok and mok) else "FAIL")
     lap("done")
     return allok and mok
 

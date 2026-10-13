@@ -130,14 +130,14 @@
     <div class="rung"><div class="accent a-violet"></div>
       <div class="num">04</div>
       <div>
-        <h2>Routing hardware → a routed adder <span class="k verified">half-adder · full adder · 10-bit</span></h2>
+        <h2>Routing hardware → a routed half-adder <span class="k verified">half-adder, run per bit</span></h2>
         <p>To wire gates together you must <b>turn</b> a signal and <b>fan it out</b>. The <b>Snark</b>
           reflects a glider 90°; the <b>duplicator</b> splits one in two — both verified cell-by-cell.
           From them, a <b>routed AND</b> and a <b>routed XOR</b> (its second leg decoupled onto its own
           right-side duplicator so the deleter is born beside its target — the hard part); side by side
-          they are a <b>half-adder</b>, and two half-adders a <b>full adder</b>. Rippling those computes
-          <b>10-bit addition</b> — 511+1=512, 682+341=1023 — every bit run through the routed cell in the
-          bare rule. Whole truth tables exact, every catalyst restored to the cell.</p>
+          they are a <b>half-adder</b>. Run once per bit, with the Python harness passing sums and carries
+          between runs, that one routed cell adds <b>10-bit numbers</b> — 511+1=512, 682+341=1023 — every
+          half-adder evaluated in the bare rule. Whole truth tables exact, every catalyst restored to the cell.</p>
         <canvas class="demo" data-seed="and" data-period="128" aria-label="A glider routed through Snark reflectors into an AND gate"></canvas>
         <div class="links">
           <a class="chip violet" href="glider-logic/life-viewer.html">▸ Watch the routed XOR / AND run</a>
@@ -168,8 +168,8 @@
   <div class="horizon">
     <h2>06 · The horizon <span class="k frontier" style="margin-left:8px">the honest frontier</span></h2>
     <p>A CPU built <em>entirely</em> of physical gliders is a genuine <b>multi-year</b> undertaking
-      (the "Life computer") — but the pieces keep falling. Combinational logic is done: routed AND,
-      routed XOR, a half-adder, a full adder, 10-bit addition. The routing kit is done: fan-out by
+      (the "Life computer") — but the pieces keep falling. Routed AND, routed XOR and a routed
+      half-adder are done; multi-bit sums so far pass carries between half-adder runs in Python. The routing kit is done: fan-out by
       chained duplicators, Snark turns, a lane-shifter, a crossover. And the first <b>sequential</b>
       piece now exists too — a <b>1-bit memory</b>, one glider circulating a 4-Snark loop
       <em>forever</em> (exactly periodic, proven). And a <b>compiler</b> has begun: it routes one

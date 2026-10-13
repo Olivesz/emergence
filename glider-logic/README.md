@@ -38,13 +38,12 @@ numbers. Every bit-column is checked by running the raw automaton:
   bit2: 0+0+cin1 -> sum 1, carry 0        => 0b101 = 5
 ```
 
-(Inputs are fanned out by placement, and the carry is passed between columns by
-the harness — dynamic fan-out and physical carry-routing between glider adders
-are the next, very hard rung: the doorway to a full "Life computer.")
+In this reaction-level adder, inputs are fanned out by placement and each
+column's carry is handed to the next column by the Python harness; every
+column's gates run in the raw rule.
 
-Because NAND is universal, the **same logic that runs the SAP-1 / SAP-2** could in
-principle stand on these glider gates. It's computation all the way down: a CPU
-made of gates, made of gliders, made of nothing but *"3 to be born, 2 to survive."*
+NAND is universal, so these gates are a complete basis for logic: gates made of
+gliders, made of nothing but *"3 to be born, 2 to survive."*
 
 ## Routing the signal — a physically-routed gate
 
@@ -65,7 +64,7 @@ routed** logic in raw B3/S23 — no placement shortcuts:
 | 3 | a **fully-routed AND gate** — B turned through *two* Snarks onto the merge, A entering directly, output escaping on a virgin lane — 4-row table **tick-exact** |
 | 4 | a **fully-routed XOR** (= the half-adder SUM) — leg-2 decoupled onto its own right-side duplicator so the deleter is born beside `b_data`, tuned to the exact clean annihilation offset, with its own guard eater; 4 rows exact (`ha_xor.py`) |
 | 5 | a complete **half-adder** — routed XOR (sum) + routed AND (carry) in one field, shared inputs; SUM=A^B, CARRY=A&B, exact (`ha_full.py`) |
-| 6 | a **full adder** (two half-adders + carry merge) and a **ripple adder** — 8/8 rows, and 6+5=11, 511+1=512, 682+341=1023, every bit run through the routed cell in the raw rule (`ha_adder.py`) |
+| 6 | the routed half-adder **run per bit**: two runs make a full adder (8/8 rows) and one run per bit adds 6+5=11, 511+1=512 and 682+341=1023. Each half-adder runs in the raw rule; the harness passes the sum and carries between runs and ORs the two carries in Python (`ha_adder.py`) |
 
 Every row passes only if the non-glider residue equals the catalyst still-lifes
 *exactly*, the surviving gliders match by (direction, lane), and they stay stable
