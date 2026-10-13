@@ -4,8 +4,8 @@
      CARRY = the physically-routed AND  (routed.build_rung3, Rung 3)
 both driven by the same logical inputs A,B.  The AND stage is translated into a
 clear region so the two gates share the field without colliding.  Fan-out of A/B
-into the two gates is by the project's disclosed multi-input convention (each bit
-fires all of its input gliders); every gate's INTERNAL fan-out is a real duplicator.
+into the two gates is by placement: each input bit fires all of its input gliders.
+Every gate's INTERNAL fan-out is a real duplicator.
 
 Verified per row: SUM = A^B, CARRY = A&B, every catalyst restored, exact survivor
 multiset (raw rule).  BOUNDED sims only.  `build_half_adder(V)` returns the cell

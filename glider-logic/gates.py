@@ -121,10 +121,8 @@ def AND(A_bit, B_bit):
     out = {(x, y) for (x, y) in res if x0 <= x <= x1 and y0 <= y <= y1}
     return 1 if any(is_glider(c) for c in components(out)) else 0
 
-# NAND = NOT(AND) — the single universal gate. {NAND} alone builds any circuit,
-# exactly as the Wireworld CPU reduces to NAND. So the *same* logic that runs the
-# SAP-1/SAP-2 could in principle stand on these glider gates — computation, all
-# the way down to "3 to be born, 2 to survive."
+# NAND = NOT(AND) — the single universal gate: {NAND} alone can express any
+# circuit, as the Wireworld CPU's netlist does.
 
 
 # ============================ ARITHMETIC ==============================

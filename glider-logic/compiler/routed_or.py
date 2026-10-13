@@ -169,7 +169,7 @@ def build_or(V, tau_and):
     # DEAD END (documented): the surviving C_out (OR=1) flies SW back into the turn-Snark
     # S1, and the annihilation geometry pins C_out's lane within ~3 of m's, so any escape
     # Snark also clips m. A standalone output-NOT can't escape here. The working path is
-    # the 2-machine composition in routed_nor_compose.py (OR's output = a clean AND-merge).
+    # the 2-machine composition in notebook/routed_nor_compose.py (OR's output = a clean AND-merge).
     cfg.update(escape=set(), out_dir='SW', out_lane=L_out)
     return cfg
 

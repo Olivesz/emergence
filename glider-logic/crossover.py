@@ -32,7 +32,7 @@ that could work:
      placement, so the discipline is enforceable; this file measures
      exactly how much clearance is required.
 
-This file delivers (B), honestly labeled, and verifies it three ways:
+This file delivers (B), labeled as such, and verifies it three ways:
 
   1. each glider's solo trajectory (direction, lane, per-tick cell sets,
      and its arrival ticks at the crossing cell) is MEASURED by simulation;
@@ -384,7 +384,7 @@ Approach A (fetch a stable crossover still life): NOT AVAILABLE.
   every 'cross*' entry is the period-3 cross OSCILLATOR family, no signal
   crossover; conwaylife.com is 403 to fetches.  Stable crossings in Life
   are triple-XOR or Herschel-conduit constructions — machinery, not a
-  Snark-sized catalyst.  So the deliverable is the honest approach B:
+  Snark-sized catalyst.  So the deliverable is approach B:
   a timed weave — corridors are transparent, timing is the discipline.""")
     failed = []
 

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Decoupled leg-2: a SECOND A-duplicator placed RIGHT, whose NW output (a_del2)
 is born next to b_data and closes on it head-on. BOUNDED sims only (<=1600t)."""
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import time
 from life import run, bbox
 from gadgets import (split_gliders, glider_dir, glider_lane, DIRNAME,

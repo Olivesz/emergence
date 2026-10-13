@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Decisive parity test: can EITHER 2-Snark SE->SE pair route lane 8 -> lane -23
 (the two XOR sum rails)? SW pair conserves lane parity; NE pair may flip it."""
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from routed import build_variants, bbox_gap
 from gadgets import split_gliders, glider_dir, glider_lane
 from life import run

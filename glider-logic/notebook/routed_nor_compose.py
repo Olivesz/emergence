@@ -11,17 +11,17 @@ merged with a constant SE partner q via the AND reaction. When m is absent (a OR
 p survives and p+q fuse into an NW output that flies off into empty space = OR=1. When
 m is present, m kills p first, q sails on alone, no output = OR=0.
 
-STATUS (honest): the forward-escape idea WORKS for the three OR=1 rows — p survives, p+q
-fuse into a clean NW output that flies off into empty space (verified, catalysts restored).
-The (0,0) row is the wall: m must kill p UPSTREAM of the p+q merge, but routing m out put
+STATUS: the forward-escape idea works for the three OR=1 rows — p survives, p+q fuse
+into a clean NW output that flies off into empty space (verified, catalysts restored).
+The (0,0) row does not: m must kill p UPSTREAM of the p+q merge, but routing m out puts
 the turn-Snark right at the m-collision, leaving p no clean stretch to merge in. Pushing
-the collision far up-lane to make room balloons the sim length (>300s per verify) — the
-slow-verify credit-bomb pattern. This is the practical wall for HAND floor-planning: each
-composed gate needs a deliberate, roomy floor-plan, which is exactly the compiler's
-automated place/route/time (Tier 3), not something to hand-tune per gate. Run: python3 -u
+the collision far up-lane to make room makes each verification run take over 300 s.
+Each composed gate needs a deliberate, roomy floor-plan, which calls for an automated
+placer and router rather than per-gate hand tuning. Run: python3 -u
 """
 import sys, os, time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "compiler"))
 from life import run, bbox
 from gadgets import split_gliders, glider_dir, glider_lane, DIRNAME
 import gates

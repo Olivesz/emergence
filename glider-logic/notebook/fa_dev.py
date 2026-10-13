@@ -3,7 +3,9 @@
 Route b_data (SE lane 8) through a 2-Snark shifter onto lane -23 (a_data's lane) so
 "sum=1" is always a glider on lane -23, whichever input produced it. Verify all 4
 rows in the raw rule (catalysts restored). This is the foundation of HA1->HA2.
-BOUNDED sims; background+poll."""
+Bounded simulations only."""
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import time
 from life import run, translate
 from gadgets import split_gliders, glider_dir, glider_lane

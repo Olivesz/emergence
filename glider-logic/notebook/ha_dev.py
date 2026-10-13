@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Scratch: design the XOR leg-2 reroute for the half-adder. BOUNDED sims only."""
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import time
 from life import run, translate, bbox
 from gadgets import (split_gliders, glider_dir, glider_lane, DIRNAME,

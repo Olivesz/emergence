@@ -4,7 +4,7 @@ loop (bit=1 held). BOUNDED sims only. Reuses verified assets; imports only.
 
 The loop: NW glider -> S1(NW->NE) -> S2(NE->SE) -> S3(SE->SW) -> S4(SW->NW)
 -> back onto the SAME NW lane (-47) it started on -> S1 -> forever. This is
-ha_dev.py's open 4-Snark reroute CLOSED onto itself: solve dx4 so the exit NW
+notebook/ha_dev.py's open 4-Snark reroute CLOSED onto itself: solve dx4 so the exit NW
 lane == the entry NW lane. A Snark reflects on any phase from anywhere along
 its lane, so lane-closure + S4 lying SE of S1 makes the whole state exactly
 periodic: run(state, P) == state is a complete proof the bit is held forever.
@@ -61,7 +61,7 @@ def search_geoms():
     cands.sort()
     return cands
 
-# Primary: ha_dev's PROVEN-CLEAN reroute dx1,dx2,dx3=(-40,40,150) (legs 1-3
+# Primary: notebook/ha_dev.py's PROVEN-CLEAN reroute dx1,dx2,dx3=(-40,40,150) (legs 1-3
 # identical to a verified NW->NE->SE->SW routing; only S4 retargeted to -47),
 # then progressively tighter closing geometries from Stage A.
 CANDS = [(-40, 40, 150), (-40, 40, 100), (-40, 40, 60), (0, 18, 40), (-20, -2, 20)]
@@ -335,6 +335,7 @@ def verify_read(dx1, dx2, dx3, ddx):
     return dict(ddx=ddx, ok=allok, P=P, t_ref=t_ref, drift=drift, Oread=Oread,
                 dup_at=G['dup_at'], O=G['O'], rows=rows, ncat=len(catU))
 
+read_win = None
 if winner:
     log("\n=== Stage C: non-destructive READ (duplicator on the SE leg) ===")
     dx1, dx2, dx3 = winner['dx']
@@ -360,3 +361,4 @@ if winner:
         log("\nRead-tap did not verify across the tried placements (see notes).")
 
 log(f"\nelapsed {round(time.time()-t0,1)}s")
+raise SystemExit(0 if (winner and read_win) else 1)

@@ -79,8 +79,15 @@ gadgets.py      the Snark reflector and the glider duplicator, verified in-engin
 routed.py       physically-routed fan-out, INHIBIT, and a full AND gate
 crossover.py    a verified glider crossover (timed weave) — carry over data
 gun_routing.py  a real period-60 gun driving the Snark — a live routed stream
+ha_xor.py, ha_full.py, ha_adder.py   routed XOR, routed half-adder, per-bit sums
+latch.py        a 1-bit memory: one glider circulating a 4-Snark loop
+compiler/       a single-glider router, gate-to-gate composition, a routed NOR
 carlini_adder.py  fetch + parse + hashlife-verify Carlini's REAL 6+5=11 adder
+notebook/       exploration scripts behind the walls in docs/glider-findings.md
 ```
+
+What is built, and the walls that stopped the rest, measured:
+[docs/glider-findings.md](../docs/glider-findings.md).
 
 ## The real thing, verified: a complete multi-bit glider adder
 

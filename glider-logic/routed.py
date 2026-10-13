@@ -634,11 +634,11 @@ def verify_rung3(V, tau_and):
 #                  SE copy = B data rail (future leg-2 / carry feed)
 # A rotated eater guards DUP_A from B's deleter in the A=0 row.
 #
-# Physical honesty note: with both duplicators emitting data-SE/deleter-NW,
+# Geometry note: with both duplicators emitting data-SE/deleter-NW,
 # only ONE cross-inhibition is geometrically realizable (the deleter of the
 # down-right duplicator can reach the other's data; the reverse deleter flies
 # away from everything).  The second XOR leg needs a 3-Snark reroute of A's
-# deleter and is where this rung honestly stops.
+# deleter; that is where this rung stops (ha_xor.py builds the second leg).
 #
 # The annihilation used here is the delta=+7 cousin of gates.ANN (deleter 7
 # lanes above the data), chosen so DUP_B's catalyst band clears the surviving

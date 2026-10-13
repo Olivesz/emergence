@@ -84,4 +84,4 @@ here = os.path.dirname(os.path.abspath(__file__))
 open(os.path.join(here, "compiled_and.rle"), "w").write(to_rle(field))
 print(f"emitted compiled_and.rle: {len(field)} cells, bbox {bbox(field)}  "
       f"(gate1 AND @origin -> routed -> gate2 AND -> a&b&c)", flush=True)
-
+sys.exit(0 if allok else 1)

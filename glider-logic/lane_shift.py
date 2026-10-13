@@ -51,9 +51,16 @@ if __name__ == "__main__":
           f"v2 {v2.din}->{v2.dout} (lin {v2.lin} lout {v2.lout})")
     # route a fanned copy (SE on lane -47) onto a duplicator's input lane (-1),
     # and onto the routed-AND's A entry lane (40), as concrete targets.
+    # A Snark pair preserves lane parity, so an odd lane cannot reach an even
+    # one: that case must find nothing.
+    allok = True
     for (L_in, L_out, label) in [(-47, -1, "dup input"), (-47, 40, "AND A-entry"),
                                  (-45, -1, "dup input (other copy)")]:
         ok, dx1, p1, p2 = verify(L_in, L_out)
+        expect = (L_in - L_out) % 2 == 0
+        allok &= bool(ok) == expect
         print(f"SE lane {L_in} -> SE lane {L_out} [{label}]: "
-              + (f"OK (Snarks @ {p1},{p2})" if ok else "no clean placement found"))
+              + (f"OK (Snarks @ {p1},{p2})" if ok else "no clean placement found")
+              + ("" if expect else "  (expected: parity differs)"))
     print("elapsed", round(time.time() - t0, 1), "s")
+    raise SystemExit(0 if allok else 1)

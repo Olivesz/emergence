@@ -48,5 +48,7 @@ if good4:
     print(f"1->4 fan-out (dup+dup+dup): dx3={good4[0]}: {n4} copies, "
           f"lanes {lanes4}, catalysts restored={ok4}")
 else:
+    ok4 = False
     print("1->4: no clean third-level placement in the swept band")
 print("elapsed", round(time.time() - t0, 1), "s")
+raise SystemExit(0 if (good and good4 and ok3 and ok4) else 1)
