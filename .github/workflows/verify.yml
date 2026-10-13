@@ -22,6 +22,8 @@ jobs:
           node-version: "20"
       - name: verify --fast
         run: python3 verify.py --fast
+      - name: every fast check fails when its subject is broken
+        run: python3 verify.py --falsify
 
   nightly:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

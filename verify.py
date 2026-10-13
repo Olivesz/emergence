@@ -39,7 +39,15 @@ CHECKS = [
     ("glider gates",           "glider-logic", ["gates.py"], "fast"),
     ("Snark + duplicator",     "glider-logic", ["gadgets.py"], "fast"),
     ("glider crossing",        "glider-logic", ["crossover.py"], "fast"),
+    ("glider router",          "glider-logic/compiler", ["router.py"], "fast"),
+    ("gate-to-gate routing",   "glider-logic/compiler", ["compose.py"], "fast"),
+    ("NOR from reactions",     "glider-logic/compiler", ["fragment.py"], "fast"),
+    ("routed NOR",             "glider-logic/compiler", ["routed_or.py"], "fast"),
+    ("lane shifter",           "glider-logic", ["lane_shift.py"], "fast"),
+    ("gun-driven stream",      "glider-logic", ["gun_routing.py"], "fast"),
     ("routed glider rungs",    "glider-logic", ["routed.py"], "nightly"),
+    ("chained fan-out",        "glider-logic", ["physical_fanout.py"], "nightly"),
+    ("1-bit glider memory",    "glider-logic", ["latch.py"], "nightly"),
     ("routed half-adder",      "glider-logic", ["ha_full.py"], "nightly"),
     ("half-adder per bit",     "glider-logic", ["ha_adder.py"], "nightly"),
     ("Carlini adder 6+5",      "glider-logic", ["carlini_adder.py"], "nightly"),
@@ -48,7 +56,7 @@ CHECKS = [
 # Each check must FAIL when the thing it checks is broken: (check, file, old, new).
 MUTATIONS = [
     ("netlist primitives", "cpu/wwlogic.py",
-     "v[o] = 0 if (v[a] and v[b]) else 1", "v[o] = 0 if (v[a] or v[b]) else 1"),
+     "v[o] = 1 - (v[a] & v[b])", "v[o] = 1 - (v[a] | v[b])"),
     ("datapath modules", "cpu/modules.py",
      "    cout = c.or_(c.and_(a, b), c.and_(s1, cin))", "    cout = c.and_(c.and_(a, b), c.and_(s1, cin))"),
     ("SAP-1 programs", "cpu/run_cpu.py",
@@ -83,6 +91,22 @@ MUTATIONS = [
      "if n == 3 or (n == 2 and c in cells)", "if n == 3 or (n == 1 and c in cells)"),
     ("glider crossing", "glider-logic/life.py",
      "if n == 3 or (n == 2 and c in cells)", "if n == 3 or (n == 1 and c in cells)"),
+    ("glider router", "glider-logic/life.py",
+     "if n == 3 or (n == 2 and c in cells)", "if n == 3 or (n == 1 and c in cells)"),
+    ("gate-to-gate routing", "glider-logic/life.py",
+     "if n == 3 or (n == 2 and c in cells)", "if n == 3 or (n == 1 and c in cells)"),
+    ("NOR from reactions", "glider-logic/life.py",
+     "if n == 3 or (n == 2 and c in cells)", "if n == 3 or (n == 1 and c in cells)"),
+    ("routed NOR", "glider-logic/life.py",
+     "if n == 3 or (n == 2 and c in cells)", "if n == 3 or (n == 1 and c in cells)"),
+    ("lane shifter", "glider-logic/life.py",
+     "if n == 3 or (n == 2 and c in cells)", "if n == 3 or (n == 1 and c in cells)"),
+    ("gun-driven stream", "glider-logic/life.py",
+     "if n == 3 or (n == 2 and c in cells)", "if n == 3 or (n == 1 and c in cells)"),
+    ("chained fan-out", "glider-logic/life.py",
+     "if n == 3 or (n == 2 and c in cells)", "if n == 3 or (n == 1 and c in cells)"),
+    ("1-bit glider memory", "glider-logic/life.py",
+     "if n == 3 or (n == 2 and c in cells)", "if n == 3 or (n == 1 and c in cells)"),
     ("routed glider rungs", "glider-logic/routed.py",
      "ok = (tau == tau_out)", "ok = (tau == tau_out + 1)"),
     ("routed half-adder", "glider-logic/ha_full.py",
@@ -102,11 +126,22 @@ def stats():
     import run_cpu
     from sap1 import SAP1
     from sap2 import SAP2
+    from wwlower import lower, topo_order
     s1 = SAP1(assemble(run_cpu.P1)[0]).c
     s2 = SAP2([0]).c
+    nl, _ = lower(s1)
+    level = {}
+    for g in topo_order(nl):
+        level[g] = 0 if nl.kind[g] in ("reg", "in") else \
+            1 + max(level[x] for x in nl.ins[g].values())
+    long_spans = sum(1 for g, ins in enumerate(nl.ins) if nl.kind[g] != "reg"
+                     for src in ins.values() if level[g] - level[src] >= 20)
     return {
         "sap1_nand": len(s1.nands), "sap1_dff": len(s1.dffs),
         "sap2_nand": len(s2.nands), "sap2_dff": len(s2.dffs),
+        "sap1_dual_rail_cells": nl.count("notc"),
+        "sap1_gadget_levels": max(level.values()),
+        "sap1_connections_spanning_20_levels": long_spans,
     }
 
 

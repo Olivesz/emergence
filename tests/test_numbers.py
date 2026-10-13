@@ -18,8 +18,13 @@ QUOTES = [
     ("cpu/cpu2.html", r"from ([\d,]+) NAND gates &amp; ([\d,]+) flip-flops", ["sap2_nand", "sap2_dff"]),
     ("cpu/cpu_shell.html", r"A CPU with ([\d,]+) NAND gates &amp; ([\d,]+) flip-flops", ["sap1_nand", "sap1_dff"]),
     ("cpu/cpu2_shell.html", r"from ([\d,]+) NAND gates &amp; ([\d,]+) flip-flops", ["sap2_nand", "sap2_dff"]),
-    ("machine-explorer.html", r"The whole machine is ([\d,]+) NAND gates \+ ([\d,]+) flip-flops", ["sap1_nand", "sap1_dff"]),
-    ("README.md", r"a \*\*D flip-flop\*\* — ([\d,]+) and ([\d,]+) of them", ["sap1_nand", "sap1_dff"]),
+    ("machine-explorer.html", r"The whole machine is one netlist of ([\d,]+) NAND gates \+ ([\d,]+) flip-flops", ["sap1_nand", "sap1_dff"]),
+    ("README.md", r"SAP-1 \(([\d,]+) NAND \+ ([\d,]+) flip-flops\)", ["sap1_nand", "sap1_dff"]),
+    ("README.md", r"SAP-2 \(([\d,]+) NAND \+ ([\d,]+) flip-flops", ["sap2_nand", "sap2_dff"]),
+    ("docs/acts.md", r"D flip-flops\*\* — ([\d,]+) and ([\d,]+) of them", ["sap1_nand", "sap1_dff"]),
+    ("cpu/README.md", r"SAP-1 \(([\d,]+)\ndual-rail NAND cells", ["sap1_dual_rail_cells"]),
+    ("cpu/README.md", r"of SAP-1's\n([\d,]+) gadget levels, ([\d,]+) connections span 20",
+     ["sap1_gadget_levels", "sap1_connections_spanning_20_levels"]),
 ]
 
 
