@@ -20,3 +20,6 @@ glider-logic/carlini_adder.rle
 
 # Body-only page builds (regenerated locally; not needed in-repo)
 *_artifact.html
+
+# C engine build cache (cpu/wwfast.py)
+__wwfast__/
