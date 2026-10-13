@@ -45,6 +45,7 @@ It prints the parsed size, every lane's state, the decoded arithmetic, and a
 PASS / PARTIAL / FAIL verdict.  It also (re)writes carlini_adder.rle — the
 generation-0 pattern in standard RLE, re-parseable by gadgets.rle_parse.
 """
+import hashlib
 import os
 import sys
 import time
@@ -61,18 +62,30 @@ from gadgets import split_gliders, glider_dir
 URL = "https://nicholas.carlini.com/writing/2020/gameoflife/adder.mc"
 MC_PATH = os.path.join(HERE, "carlini_adder.mc")
 RLE_PATH = os.path.join(HERE, "carlini_adder.rle")
+# sha256 of the adder.mc this file was verified against; any other bytes are refused.
+MC_SHA256 = "c61658e0e155f69143df24d0fd804188fff49ac445f0ab89227887730a32968b"
 
 
 # ======================================================================
 # 1) fetch + parse the macrocell file
 # ======================================================================
+class HashMismatch(Exception):
+    pass
+
+
 def fetch_mc():
     if os.path.exists(MC_PATH):
-        text = open(MC_PATH).read()
+        data = open(MC_PATH, "rb").read()
     else:
         print(f"downloading {URL} ...")
-        text = urllib.request.urlopen(URL, timeout=60).read().decode()
-        open(MC_PATH, "w").write(text)
+        data = urllib.request.urlopen(URL, timeout=60).read()
+    digest = hashlib.sha256(data).hexdigest()
+    if digest != MC_SHA256:
+        raise HashMismatch(f"adder.mc sha256 is {digest}, expected {MC_SHA256}; "
+                           f"refusing to verify a different pattern")
+    if not os.path.exists(MC_PATH):
+        open(MC_PATH, "wb").write(data)
+    text = data.decode()
     if not text.startswith("[M2]"):
         raise ValueError("not a Golly macrocell file (missing [M2] header)")
     return text
@@ -539,4 +552,8 @@ def write_rle(cells, path):
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except HashMismatch as e:
+        print(f"FAIL: {e}")
+        sys.exit(1)
