@@ -144,8 +144,8 @@ evaporates and never guarantees the start reaches the end. Instead we grow a fro
 **shortest path** straight off the distance field. It's a deterministic stand-in that
 is *guaranteed* to solve, and it mirrors the organism's real outcome (explore all
 corridors, then keep only the connecting tube) even though the mechanism is BFS rather
-than tube-flow. Honest labelling: the agent model *simulates the organism*; the maze
-mode *reproduces its result*.
+than tube-flow. The agent model *simulates the organism*; the maze mode *reproduces
+its result* by breadth-first search.
 
 ---
 

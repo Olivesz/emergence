@@ -1,4 +1,4 @@
-<title>Descent into the Substrate — a CPU, all the way down to gliders</title>
+<title>Descent into the Substrate — from a CPU to a gate, then to gliders</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 :root{
@@ -151,10 +151,10 @@ canvas#life{position:absolute;inset:0;width:100%;height:100%;display:block}
   <div class="intro-card">
     <div class="eyebrow">Emergence · start here</div>
     <h1>Zoom a computer down to single gliders.</h1>
-    <p>What you're looking at is a real, working processor &mdash; it runs actual programs. It's a <b>Wireworld</b> machine: every part is one of just two building blocks, a NAND gate and a one-bit memory cell.</p>
+    <p>What you're looking at is a real, working processor &mdash; it runs actual programs. It is built for <b>Wireworld</b>: every part is one of just two building blocks, a NAND gate and a one-bit memory cell.</p>
     <p>Zoom into any piece and it opens into smaller pieces &mdash; registers, adders, gates &mdash; until you reach a single <b>logic gate</b>, the atom of computing.</p>
     <p>Then the last step drops a whole universe lower. That same gate can be built in the simplest cellular automaton there is &mdash; Conway's <i>Game&nbsp;of&nbsp;Life</i>, where a dot lives only by counting its neighbours. One rule; no wires, no electricity.</p>
-    <p>There a logic gate is nothing but colliding <b>gliders</b> &mdash; little shapes that travel and carry the 1s and 0s. This is <em>not</em> the substrate this particular CPU runs on &mdash; it's a separate build, and proof that the <b>same logic</b> reaches all the way down to one napkin rule.</p>
+    <p>There a logic gate is nothing but colliding <b>gliders</b> &mdash; little shapes that travel and carry the 1s and 0s. The glider gates are their own build, made to show the <b>same logic</b> working under one napkin rule.</p>
     <p class="dim">Two machines, one truth: computation falls out of almost nothing.</p>
     <div class="how"><b>How to explore:</b> click any <b>glowing</b> block to zoom one layer deeper. Use the trail along the top to climb back out. The deeper you go, the simpler the substrate &mdash; until, at the floor, it's just gliders under a single rule.</div>
     <button class="intro-begin" id="introBegin">Begin the descent &darr;</button>
@@ -254,7 +254,7 @@ const L=["Machine","Datapath","Logic block","Gate","Gliders"];
 const SCENES={
  cpu:{layer:0,kicker:"SAP-1 · Wireworld processor",title:"A working CPU",
    blurb:"A real Simple-As-Possible processor — it runs programs (here, 5 + 3 → 8). Every block below is built from just two primitives: a NAND gate and a D flip-flop. Click a highlighted block to open it.",
-   rail:{lede:"The whole machine is 1,446 NAND gates + 175 flip-flops — a Wireworld circuit. Drill to a single gate; the floor then shows that same gate rebuilt one universe deeper, in Conway's Life gliders — a separate build, proof the logic bottoms out in the simplest rule.",
+   rail:{lede:"The whole machine is one netlist of 1,446 NAND gates + 175 flip-flops. Drill to a single gate; the floor then shows that gate built one universe deeper, in Conway's Life gliders, as its own build.",
      meta:[["substrate","Wireworld"],["deepest view","Conway's Life"],["primitives","NAND + DFF"],["gates","1,446"],["flip-flops","175"],["program","5 + 3 → 8"]],
      note:"Hand-wiring gates into a CPU hits a hazard wall; the fix is a <b>synchronous</b> discipline — latch every signal once per clock. That's why the whole machine reduces to {NAND, DFF}."},
    diagram:{vb:[960,600],
@@ -303,12 +303,12 @@ const SCENES={
      blocks:(()=>{let b=[];for(let i=0;i<8;i++){let x=110+i*100;b.push(Object.assign({x:x,y:180,w:72,h:150,label:"DFF",sub:"bit "+(7-i)},i===0?{to:"dff"}:{}));}return b;})()},
    hint:"Open one <b>D flip-flop</b>."},
  dff:{layer:2,kicker:"Logic block · one bit of memory",title:"D Flip-Flop",
-   blurb:"A flip-flop stores one bit. It's a small lattice of NAND gates that hold each other's state in a feedback loop — the loop is the memory. Open a NAND to keep descending, or jump to what holding a bit looks like in gliders.",
-   rail:{lede:"Cross-coupled NANDs: each gate's output feeds the other's input, so the pair holds its value. A couple more NANDs turn this latch into a clock-triggered flip-flop.",
-     meta:[["made of","≈ 6 NAND gates"],["essence","a feedback loop"],["in gliders","a circulating bit"]],
+   blurb:"A flip-flop stores one bit and updates once per clock: with its load line on it takes D, otherwise it keeps its value. Three NANDs pick which, and the choice travels a loop exactly one clock long — the loop is the memory. Open a NAND, or jump to a bit held in gliders.",
+   rail:{lede:"Compiled to Wireworld, the bit is an electron travelling a loop one clock long, on one of two wires (one for 1, one for 0). Checked in the raw rule for 16 clocks, every combination of value, D and load.",
+     meta:[["made of","3 NANDs + a one-clock loop"],["essence","a feedback loop"],["in gliders","a circulating bit"]],
      note:"A flip-flop is <b>state</b>. In gliders, state is a signal that loops forever — which we've actually built."},
    diagram:{vb:[960,520],
-     labels:[{x:150,y:150,t:"D",cls:"pin"},{x:150,y:360,t:"CLK",cls:"pin"},{x:830,y:200,t:"Q",cls:"pin"},{x:480,y:70,t:"cross-coupled feedback = 1 bit held",cls:"lbl"}],
+     labels:[{x:150,y:150,t:"D",cls:"pin"},{x:150,y:360,t:"LOAD",cls:"pin"},{x:830,y:200,t:"Q",cls:"pin"},{x:480,y:70,t:"a loop one clock long = 1 bit held",cls:"lbl"}],
      wires:[[180,160,240,190,1],[180,360,240,330,1],[360,210,420,210,1],[360,300,420,300,1],[560,210,620,240,1],[560,300,620,270,1],[740,255,800,210,1],[700,300,700,360,1],[700,360,300,360],[300,360,300,300],[300,300,240,300,1]],
      blocks:[{x:240,y:180,w:120,h:70,label:"NAND",sub:"",to:"gate_nand"},{x:240,y:270,w:120,h:70,label:"NAND",sub:""},{x:620,y:200,w:120,h:70,label:"NAND",sub:""},{x:620,y:250,w:120,h:70,label:"NAND",sub:""},{x:410,y:430,w:280,h:64,label:"A bit held in gliders",sub:"the 1-bit glider memory",to:"gliders_mem"}]},
    hint:"Open a <b>NAND</b>, or jump to the <b>glider memory</b>."},
@@ -354,7 +354,7 @@ const SCENES={
      note:"Two of these XORs plus two ANDs make the full adder tiled eight times up in the ALU."}},
  gliders_nor:{layer:4,life:"NOR",settle:130,title:"The universal gate, in gliders",kicker:"raw Conway's Life · B3/S23",
    cap:"A physical NOR — universal, so any circuit is copies of this. Two constant 'carrier' gliders feed a merge; each real input is a deleter that annihilates its carrier. Here one input fires: watch its glider hunt down and annihilate a carrier. No reflector-merge — it routes around that wall with a constant carrier.",
-   rail:{lede:"NOR is functionally complete, like NAND — so this one verified field is, in principle, enough to build the whole machine.",meta:[["rule","B3/S23"],["field","125 × 73"],["role","universal gate"]],
+   rail:{lede:"NOR is functionally complete, like NAND: any logic can be written in NOR alone.",meta:[["rule","B3/S23"],["field","125 × 73"],["role","universal gate"]],
      note:"The CPU up top is {NAND, DFF}. This is that NAND's dual, alive in the cellular automaton."}},
  gliders_mem:{layer:4,life:"MEM",settle:1528,title:"One bit, held forever",kicker:"raw Conway's Life · B3/S23",
    cap:"A 1-bit memory — a single glider circling four Snark reflectors forever. Each reflector turns it 90° and restores itself, so the bit never decays. The pattern returns exactly to its start every 1528 generations. It does a flip-flop's job — holding one bit — one universe deeper, in gliders.",

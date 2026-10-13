@@ -150,12 +150,13 @@
       <div class="num">05</div>
       <div>
         <h2>The computer <span class="k verified">runs real programs</span></h2>
-        <p>In Wireworld — the CA built for circuits — the gates compose into a genuine <b>CPU</b>:
-          <b>SAP-1</b> and the bigger <b>SAP-2</b> (256 bytes, a stack, ~35 instructions), each one
-          flat netlist of just a NAND gate and a D flip-flop. It runs multiply, divide, GCD, primes,
-          bubble-sort, Fibonacci — watchable live, register by register. <b>This CPU is a Wireworld
-          machine</b> — a separate build from the glider logic above; the gliders demonstrate the
-          <em>same</em> gates one universe deeper, in raw Conway's Life, not that this processor runs on them.</p>
+        <p>The gates compose into a genuine <b>CPU</b>: <b>SAP-1</b> and the bigger <b>SAP-2</b>
+          (256 bytes, a stack, ~35 instructions), each one flat netlist of just NAND gates and D
+          flip-flops, SAP-2's memory included. It runs multiply, divide, GCD, primes, bubble-sort,
+          Fibonacci — watchable live, register by register. A compiler lays such netlists into raw
+          <b>Wireworld</b>: a full adder, a 4-bit counter and a flip-flop run in the rule itself,
+          matching the netlist on every clock. The whole CPU has not been compiled yet. The glider
+          logic above is its own build, in Conway's Life.</p>
         <div class="links">
           <a class="chip" href="cpu/cpu.html">▸ SAP-1 front panel</a>
           <a class="chip" href="cpu/cpu2.html">▸ SAP-2 debugger</a>
@@ -166,7 +167,7 @@
   </div>
 
   <div class="horizon">
-    <h2>06 · The horizon <span class="k frontier" style="margin-left:8px">the honest frontier</span></h2>
+    <h2>06 · The horizon <span class="k frontier" style="margin-left:8px">what is next</span></h2>
     <p>A CPU built <em>entirely</em> of physical gliders is a genuine <b>multi-year</b> undertaking
       (the "Life computer") — but the pieces keep falling. Routed AND, routed XOR and a routed
       half-adder are done; multi-bit sums so far pass carries between half-adder runs in Python. The routing kit is done: fan-out by
@@ -179,9 +180,10 @@
       (checked: 340 placements, 0 clean); but <em>fan-in doesn't need a mirror</em> —
       <code>OR = NOT(AND(NOT a, NOT b))</code> rebuilds it from the exact reactions already verified,
       so the whole adder lives in the proven fragment. What remains is the mountain of
-      <b>timing-closure at scale</b>: thousands of these wired together in lockstep — effort, no longer
-      a wall. Nothing here is inflated — the CPU that runs today is the Wireworld one; the glider
-      machine is honest, real, and climbing.</p>
+      <b>timing-closure at scale</b>: thousands of these wired together in lockstep. The same
+      problem is the open one in Wireworld: a compiled circuit works only when every gate's inputs
+      arrive on the same 33-tick beat, and the full CPU needs its delays planned into the layout
+      before it can be routed.</p>
   </div>
 
   <p class="foot">Every gate, adder, reflector, and CPU cell in this ladder is verified by running the
