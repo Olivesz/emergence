@@ -25,7 +25,7 @@ modules.py   datapath cells: register, full-adder, adder/subtractor, PC, decoder
 sap1.py      the CPU: bus, PC, MAR, RAM, IR, A/B, ALU, OUT, ring-counter control
 asm.py       a tiny assembler (labels, DB data)
 run_cpu.py   five real programs, self-checking
-ww_cells.py  the physical Wireworld NAND & flip-flop, verified in the raw CA rule
+ww_cells.py  a hand-built Wireworld NAND and loop register, verified in the raw CA rule
 ```
 
 The assembled machine is **1446 NAND gates + 175 flip-flops** — every one of them

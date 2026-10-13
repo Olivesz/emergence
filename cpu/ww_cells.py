@@ -4,8 +4,10 @@ ww_cells.py — Wireworld standard-cell verification for the Emergence CPU (Act 
 
 Self-contained: run `python3 ww_cells.py`. No imports beyond the stdlib.
 
-Two clocked logic cells are built and verified by direct simulation of the
-exact Wireworld rule (the reference `step` below):
+Two clocked cells are built and verified by direct simulation of the exact
+Wireworld rule (the reference `step` below). They are the hand-built cells;
+the compiled CPU uses the tile library in wwtiles.py, and its flip-flop is
+checked in test_dff.py.
 
   CELL 1 — NAND.
     A 5-cell corner-fed junction:
@@ -17,9 +19,10 @@ exact Wireworld rule (the reference `step` below):
     unless BOTH A and B arrive with it (3 heads -> suppressed, output=0).
     This IS the "clock-fed suppression junction": NAND in a single stage.
 
-  CELL 2 — 1-bit register / D-latch cell (loop storage).
-    A writable loop register (loop + SET wire + left-edge vertical diode
-    + non-destructive read tap), with a CLEAR junction: the right edge of the loop makes a 1-cell "V-jog"
+  CELL 2 — loop register with SET and synchronized CLEAR (not a D flip-flop:
+    it has no data input or enable; SET writes a 1, CLEAR erases a stored 1).
+    A loop (loop + SET wire + left-edge vertical diode + non-destructive read
+    tap), with a CLEAR junction: the right edge of the loop makes a 1-cell "V-jog"
     through a junction cell J (in -> J -> out, diagonal jog). All of J's
     east neighbours are exterior, and the two cells (W+2,K-1),(W+2,K) are
     adjacent to J and to NOTHING else on the loop — so a 2-wide clear wire
@@ -295,7 +298,7 @@ def verify_reg(results):
                      [(0, pk[0][0], pk[0][1]),
                       (150, pk[3][0], pk[3][1]), (150, pk[4][0], pk[4][1])],
                      260)
-    results.append(("DFF engine cross-check (fast == reference)", okx))
+    results.append(("REG engine cross-check (fast == reference)", okx))
 
     # --- HOLD: write a 1, watch the read tap for 8 periods -------------
     reads, inhits, _, el = reg_run(W, H, base, pk, sets=(0,), S=560)
@@ -304,16 +307,16 @@ def verify_reg(results):
     ok_hold = (len(reads) >= 7 and len(gaps) == 1 and reads[-1] > 560 - P - 4)
     print(f"  HOLD:  SET at t=0 -> reads at {reads[:5]}... "
           f"gap set {gaps} (stable period), last read t={reads[-1]}")
-    results.append((f"DFF HOLD: stored 1 re-read every {P} ticks, "
+    results.append((f"REG HOLD: stored 1 re-read every {P} ticks, "
                     f"{len(reads)} non-destructive reads, bit alive at end", ok_hold))
 
     # --- WRITE: Q follows D --------------------------------------------
     ok_w1 = len(reads) > 0                       # D=1: SET pulse -> Q=1
     r0, _, _, el0 = reg_run(W, H, base, pk, sets=(), S=300)
     ok_w0 = (not r0) and el0 == 0                # D=0: no pulse -> Q=0
-    results.append(("DFF WRITE D=1: SET pulse through diode -> Q=1 "
+    results.append(("REG SET: pulse through the diode stores a 1 "
                     "(read tap fires)", ok_w1))
-    results.append(("DFF WRITE D=0: no pulse -> Q=0 "
+    results.append(("REG no SET: no pulse leaves the loop empty "
                     "(read tap silent, loop empty)", ok_w0))
 
     # --- CLEAR calibration ---------------------------------------------
@@ -335,14 +338,14 @@ def verify_reg(results):
     ok_clear = (len(pre) >= 3) and (not post) and elc == 0
     print(f"  CLEAR: read tap before clear: {pre[:4]}...  after clear: "
           f"{post if post else 'SILENT'}; electrons left in grid: {elc}")
-    results.append(("DFF CLEAR: synchronized suppression pulse kills the "
+    results.append(("REG CLEAR: synchronized suppression pulse kills the "
                     "circulating electron (reads stop, 0 electrons remain)", ok_clear))
 
     # --- CLEAR synchronization requirement (mistimed pulse != clear) ---
     rm, _, _, elm = reg_run(W, H, base, pk, sets=(0,), clears=(t_inj + 2,),
                             S=t_star + 300)
     ok_sync = bool([t for t in rm if t > t_star + P])
-    results.append(("DFF CLEAR is genuinely synchronized: a pulse 2 ticks "
+    results.append(("REG CLEAR is genuinely synchronized: a pulse 2 ticks "
                     "late does NOT clear (bit still read afterwards)", ok_sync))
 
     # --- WRITE after CLEAR: full 1 -> 0 -> 1 cycle ---------------------
@@ -357,7 +360,7 @@ def verify_reg(results):
             and post2[-1] > S_rw - P - 4 and elw >= 2
     print(f"  WRITE-CLEAR-WRITE: reads between clear and re-set: "
           f"{mid if mid else 'none'}; after re-SET: {post2[:3]}... gaps {g2}")
-    results.append(("DFF full cycle: write 1, clear to 0, write 1 again "
+    results.append(("REG full cycle: write 1, clear to 0, write 1 again "
                     "(reads silent while 0, periodic again after re-set)", ok_rw))
 
     print("  note: CLEAR is defined for Q=1 (it is the synchronized "

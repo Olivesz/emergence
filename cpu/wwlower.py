@@ -83,6 +83,7 @@ def lower(c, inputs=(), outputs=()):
         lit[n] = (base, True)
 
     memo = {}
+    depth = defaultdict(int)          # gadget levels until a base's rails exist
 
     def nand(la, lb):
         if la == CONST0 or lb == CONST0:
@@ -98,11 +99,14 @@ def lower(c, inputs=(), outputs=()):
         key = frozenset((la, lb))
         if key in memo:
             return memo[key]
+        # the local clock comes from the deeper input, so it arrives with m
+        x = la if depth[la[0]] >= depth[lb[0]] else lb
         m = nl.add("merge", "m", a=false_rail(la), b=false_rail(lb))
-        clk = nl.add("merge", "clk", a=true_rail(la), b=false_rail(la))
+        clk = nl.add("merge", "clk", a=true_rail(x), b=false_rail(x))
         n = nl.add("notc", "n", p=m, q=clk)
         base = ("g", m)
         rails[base] = (m, n)
+        depth[base] = max(depth[la[0]], depth[lb[0]]) + 2
         memo[key] = (base, True)
         return memo[key]
 
@@ -200,7 +204,7 @@ class PulseSim:
                 if v[ins["p"]] and not v[ins["q"]]:
                     raise AssertionError("NOTC fed p without q")
                 v[g] = v[ins["q"]] & (1 - v[ins["p"]])
-            elif k == "out":
+            elif k in ("out", "delay"):
                 v[g] = v[ins["d"]]
 
     def tick(self):
