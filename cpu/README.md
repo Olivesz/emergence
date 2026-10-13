@@ -1,23 +1,20 @@
-# A CPU built from Wireworld
+# A CPU for Wireworld
 
 A complete, working **SAP-1+** processor (the canonical "Simple-As-Possible"
 teaching CPU, lightly extended with memory-store and branches) expressed as a
 single flat netlist of just **two primitives** — a NAND gate and a D flip-flop —
-each of which is a verified [Wireworld](../README.md) gadget.
-
-This is the payoff of Act VIII: the same 4-state cellular automaton that gave us
-a clock, a wire, and logic gates is *universal*, and here it runs actual programs.
+plus a compiler that lays such netlists out in raw [Wireworld](../README.md).
 
 ## Why two primitives is the whole trick
 
 Hand-composing asynchronous Wireworld gates hits a wall: a long lead on one gate
 input corrupts the other, and inter-gate wires are bidirectional, so signals flow
-backward and oscillate. Real silicon beats the identical hazard the same way we
-do here — a **synchronous discipline**: every signal is latched in a D flip-flop
-once per clock, and combinational NAND clouds settle in between. So a netlist of
-`{NAND, DFF}` on one clock computes exactly what the physical Wireworld circuit
-computes, cycle for cycle. NAND is functionally complete; the flip-flop supplies
-memory. That's a universal computer.
+backward and oscillate. Real silicon beats the identical hazard the same way:
+a **synchronous discipline**, where every signal is latched in a D flip-flop once
+per clock and combinational NAND clouds settle in between. NAND is functionally
+complete; the flip-flop supplies memory. The compiler below is what turns that
+netlist into a Wireworld circuit, and its runs are checked against the netlist
+clock by clock.
 
 ```
 wwlogic.py   the simulator: NAND + DFF primitives, AND/OR/XOR/MUX derived from NAND
@@ -28,8 +25,34 @@ run_cpu.py   five real programs, self-checking
 ww_cells.py  a hand-built Wireworld NAND and loop register, verified in the raw CA rule
 ```
 
-The assembled machine is **1446 NAND gates + 175 flip-flops** — every one of them
-one of the two verified cells.
+The assembled machine is **1446 NAND gates + 175 flip-flops** (`python3
+../verify.py --stats`).
+
+## Compiling the netlist to raw Wireworld
+
+```
+wwlower.py         NAND + DFF -> dual-rail pulse logic: two wires per value, one pulse per clock
+wwtiles.py         18 tiles (wire, turn, split, crossover, delay, merge, NOT-with-clock), each verified
+wwplace.py         places the gadgets, routes every input to arrive on the same beat, emits cells
+wwfast.c/.py       a sparse C stepper, checked cell for cell against the reference rule
+test_wwcompile.py  a compiled full adder (8 rows) and 4-bit counter (18 clocks) in the raw rule
+test_dff.py        the compiled D flip-flop with enable: 16 clocks, every (q, d, en) row
+```
+
+Each value travels as a pair of wires; in every clock exactly one of them
+carries an electron. That makes NOT free and gives every gate a local clock.
+Every tile path is a whole number of 33-tick beats, so signals meet either
+together or a beat apart, and each tile is verified for both cases. A NAND
+compiles to two merges and a NOT-with-clock; a flip-flop is a NAND multiplexer
+feeding a loop exactly one clock long.
+
+**Where it stops.** The full adder, the 4-bit counter and the flip-flop run in
+the rule itself and match the netlist on every clock. The whole SAP-1 (1,049
+dual-rail NAND cells after folding inverters, constants and duplicates) has not
+been compiled: every gate's inputs must arrive on the same beat, and of SAP-1's
+62 gadget levels, 393 connections span 20 or more, so its delay lines have to be
+planned into the layout. The router on hand does not yet manage that past about
+a dozen gates.
 
 ## The instruction set
 
@@ -96,5 +119,6 @@ python3 run_sap2.py   # six real algorithms on the SAP-2
 Interactive debugger panel: **[`cpu2.html`](cpu2.html)** — a code editor with an
 assembler, single-step / breakpoints (click a memory cell), editable memory
 (double-click), an input dial, and the memory-mapped screen.
-`wwcpu2.js` is the JS port (verified identical to the Python); `cpu2.html` is
-built from `cpu2_shell.html` with the engine injected.
+`wwcpu2.js` is the JS port: `test_js_parity.py` runs every program on both and
+compares every register on every cycle and the final memory. `cpu2.html` is
+built from `cpu2_shell.html` by `build_pages.py`.

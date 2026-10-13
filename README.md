@@ -1,103 +1,91 @@
 # Emergence
 
-**A living cellular-automata universe — one engine, eight acts, built to inspire awe.**
+[![verify](https://github.com/Olivesz/emergence/actions/workflows/verify.yml/badge.svg)](https://github.com/Olivesz/emergence/actions/workflows/verify.yml)
 
-Two rules you could write on a napkin produce unfathomable complexity. This is an
-interactive, single-file web toy that makes that *visible* — cinematic, glowing,
-and playable in the browser with no build step and no dependencies.
+**Eight cellular automata, one engine: from a one-line rule to a CPU.**
 
-> The whole point: maximize the gap between the **triviality of the rule** and the
-> **apparent sophistication of the result** — and make that gap legible. Show the
-> rule, then show the miracle.
+![The eight acts, recorded from index.html](docs/acts.gif)
 
-Act VIII climbs the whole ladder from a one-line rule to a **working CPU**. For the
-guided tour of that ladder — signal → gate → arithmetic → processor, every rung
-verified and linked to a live demo — start at **[the-stack.html](the-stack.html)**.
+Rules you could write on a napkin produce structure nobody wrote down. This is an
+interactive, single-file web toy that makes that visible, playable in the browser
+with no build step and no dependencies. Act VIII climbs from a wire to a working
+CPU; [the-stack.html](the-stack.html) walks that ladder rung by rung.
+
+**Live:** [olivesz.github.io/emergence](https://olivesz.github.io/emergence/) ·
+[the stack](https://olivesz.github.io/emergence/the-stack.html) ·
+[SAP-1 panel](https://olivesz.github.io/emergence/cpu/cpu.html) ·
+[SAP-2 debugger](https://olivesz.github.io/emergence/cpu/cpu2.html)
 
 ## The acts
 
-| Act | System | The "wow" |
-|-----|--------|-----------|
-| **I — The Turmites** | Langton's Ant & generalized turmites | ~10,000 steps of chaos, then a self-built periodic *highway* appears from nowhere. An editable rule string makes it an infinite explorer (`RL`, `RLR`, `LLRR`, …), and **multiple ants** share one grid — their highways collide and interfere. |
-| **II — The Living Field** | Conway's Game of Life | Cells that breathe. Age-colored (newborn cyan → ancient magenta). R-pentomino, Gosper glider gun, pulsar, or paint your own. |
-| **III — The Grazers** | Hybrid (the novel one) | Ants roaming a *living* Conway field. Each ant reads the **same alive/dead bit** Conway reads and turns on it — the two automata provably reading the same state. |
-| **IV — Chemical Garden** | Gray–Scott reaction–diffusion | Two virtual chemicals feed, react, and diffuse. A field of near-uniform noise **self-organizes into coral, cell mitosis, and fingerprints** — Turing's morphogenesis, live. Drag to inject reagent. |
-| **V — The Creatures** | Lenia (continuous CA) | Conway's Life made **continuous** — real-valued cells, a smooth ring kernel, a bell-curve growth function. An ecosystem of glowing organisms **self-assembles out of random static** and swims, morphs, and divides. Runs on its own coarse grid (kernel convolution is costly), rendered scaled up. Drag to breathe life into the void. |
-| **VI — The Slime Mold** | Physarum agent model | The brainless yellow slime mold *Physarum polycephalum* — which famously reproduced the Tokyo rail network and solves mazes. Thousands of particle-agents each sniff a chemical trail at three points ahead, steer toward the strongest, move, and deposit; the trail diffuses and evaporates. **Reinforced routes survive, dead ends fade** — the emergent network *is* the solution. "Connect the cities" and "Free veins" run the agent model; **"Solve a maze"** grows the organism outward from a single **start** life-point through a huge world-filling labyrinth and, the instant it reaches the **end**, reveals the shortest connecting path (deterministic breadth-first — always the true shortest route); **"Flow physics"** runs the *actual organism physics* — the **Tero flow-conductivity model** on a braided maze: current is injected at the start and drained at the end (Kirchhoff), flux follows Poiseuille's law through each tube, and every tube adapts `D += δ·(\|Q\|^μ − D)` (μ≈1.8, superlinear) so tubes carrying flux **thicken** and the rest **starve** — the faithful model from [robert-30/physarum-maze](https://github.com/robert-30/physarum-maze): each *maze cell* is a graph node (~200 nodes), the Kirchhoff pressure system is solved with a current source each iteration. It **forages**: the slime starts at the source **only** (no prior knowledge of the maze), grows its frontier outward exploring the corridors, **peels dead-ends as it goes** (a tip that can't advance retracts and is never re-explored), and the instant its frontier reaches the goal it stops exploring and the flux concentrates — `D += δ·(\|Q\|^μ − D)`, μ≈1.8 — onto the shortest connecting tube while the rest starve. Rendered as **thick glowing veins** (width ∝ conductivity) over the maze: a dim network shows where it explored, a bright thick tube is the solution. **"Smart solve"** is the *efficient* counterpart — **bidirectional A\***: two frontiers grow from the two foods, each guided toward the other by `f = cost-so-far + straight-line-distance`, meeting in the middle. On a hard, heavily-braided maze with **random, non-corner endpoints** (so the solution isn't a diagonal) it finds the shortest path exploring only ~10% of the cells — the live **Explored** readout shows the cost. The solvers run in **slow-motion** (speed slider) so you can watch the frontiers explore. Note the theory: **"Smart solve"** assumes you *know* the goal (heuristic → A\*); **"Solve a maze"** does *not* (uninformed) and so must expand its frontier uniformly by distance — the provably-optimal shortest-path search when the goal's location is unknown. The gap in *Explored* between them is exactly the value of knowing where you're going. **"No-map walk"** is the true *stuck-inside-with-no-map* solver — **Trémaux's algorithm**: one agent with only local sensing marks each passage as it walks it, never takes a twice-marked passage, and backtracks from dead-ends; it's guaranteed to escape *any* maze, and the passages walked once trace the solution. "Slime maze" is the pure agent-model companion. |
-| **VII — The Sandpile** | Abelian sandpile (BTW) | Drop sand grains; any cell with 4 topples one to each neighbour, which can cascade. Dropping at one point grows the astonishing **self-similar sandpile-identity fractal**; raining grains randomly drives the pile to a critical state where **avalanche sizes follow a power law** — the same signature (self-organized criticality) as earthquakes, extinctions, and market crashes. One integer rule. |
-| **VIII — Logic Gates → a Computer** | Wireworld | A 4-state CA **designed to be a computer**: empty, electron head, electron tail, conductor — with the single rule "a conductor becomes a head iff exactly 1 or 2 neighbours are heads." Electrons run one cell per tick along wires (the tail behind stops backflow, so wires are directional), and where wires meet, that threshold rule *is* logic. This act climbs the whole stack of a machine: a **clock** (an electron circling a loop forever); a **wire**; a simulation-**verified OR** (00→0,01→1,10→1,11→1) and **XOR** (…11→**0**) gate — both computing their truth tables live by auto-cycling inputs. XOR is the subtle one: A drives *two* of the output junction's diagonal corners (2 heads), B drives a third (1 head), and when *both* fire, three heads coincide and the "not 3" rule **suppresses** the output. Because that rule can never require ≥2 heads, a naive AND is impossible — so this act builds a verified **AND** as the two-stage **`(A OR B) − (A XOR B)`**, dissolving the notorious Wireworld **crossover** by tapping the OR *locally* where the XOR already brings the inputs together, with a searched-for **diode** on each input to block junction backflow. From AND + XOR comes a **half-adder** — one circuit emitting both **sum** (A⊕B) and **carry** (A·B), i.e. binary addition (`1+1 → sum 0, carry 1`). And **Memory**: a bit *stored* as an electron circling a loop forever (present=1), read non-destructively by a tap — the leap from logic to **state**. Logic, arithmetic, and memory — the three things a CPU is made of — then compose into an actual **[processor](cpu/)**: a working **SAP-1** CPU (bus, program counter, RAM, instruction register, accumulator, ALU, and a ring-counter control unit) expressed as one synchronous netlist of just two verified Wireworld cells — a **NAND gate** and a **D flip-flop** — 1446 and 175 of them. It runs real programs with loops and branches (`5+3`, countdown, Fibonacci-till-overflow), watchable live in an [interactive front panel](cpu/cpu.html), with a bigger **[SAP-2](cpu/)** (256 bytes, a stack, ~35 instructions) running multiply, primes, and bubble-sort. And for the *lowest* view of all, a companion drops a level beneath Wireworld into raw **[Conway's Life](glider-logic/)**, where there is no wire or clock at all — a glider is the signal, a glider gun the source, and **logic gates are literally glider collisions** (NOT, AND, XOR, NAND, all verified). Those compose into a **half-adder and full-adder** — real binary arithmetic in colliding gliders (`3+2 → 101 = 5`, every bit checked against the raw rule) — and, with the canonical **Snark reflector** and **glider duplicator** verified in-engine, the real routing hardware to turn and fan out a signal — from which comes a **physically-routed AND gate**: input B turned through *two* reflectors onto the merge, output escaping on a virgin lane, its truth table exact and tick-perfect in the raw rule. Watch it run in a zoomable **[whole-circuit viewer](glider-logic/life-viewer.html)**. All of it emerged from "fire on 1 or 2 neighbours." |
+| Key | Act | System | What happens |
+|---|---|---|---|
+| `1` | **I — The Turmites** | Langton's ant, turmites | ~10,000 steps of chaos, then a periodic *highway* builds itself. Editable rule string (`RL`, `RLR`, `LLRR`, …), several ants on one grid. |
+| `2` | **II — The Living Field** | Conway's Life | Age-coloured cells; R-pentomino, glider gun, pulsar, or paint your own. |
+| `3` | **III — The Grazers** | ant + Life hybrid | Ants turn on the same alive/dead bit Conway's rule reads, so each automaton reshapes the other. |
+| `4` | **IV — Chemical Garden** | Gray–Scott reaction–diffusion | Near-uniform noise organises into coral, dividing cells and fingerprints. Drag to inject reagent. |
+| `5` | **V — The Creatures** | Lenia | Continuous Life: glowing organisms assemble out of static, swim and divide. |
+| `6` | **VI — The Slime Mold** | Physarum agents | Trail-following agents build transport networks; maze modes solve by breadth-first search, A\* and a flow model. [Details](docs/acts.md#act-vi--the-slime-mold-physarum) |
+| `7` | **VII — The Sandpile** | Abelian sandpile | One toppling rule grows a self-similar fractal; random rain gives power-law avalanches. |
+| `8` | **VIII — Logic Gates → a Computer** | Wireworld | Clock, wire, OR, XOR, AND, a half-adder and a memory loop, each auto-cycling its truth table; then a CPU. [Details](docs/acts.md#act-viii--logic-gates--a-computer-wireworld) |
 
-## Why the thesis holds in the code
+## Results, and how to check them
 
-Langton's Ant and Conway's Life look like different species — a moving read/write
-head vs. a global field update. But they are both cellular automata, and in **Act
-III** the connection is literal: the ant's turn rule is
+Every claim below is printed by a script that exits non-zero when it fails.
+`python3 verify.py --fast` runs the push gate (about 90 s, Python 3 stdlib, plus Node
+or macOS's JavaScriptCore for the browser engines); `--nightly` adds the slow runs.
+
+| Claim | Command | Time | CI |
+|---|---|---|---|
+| SAP-1 (1446 NAND + 175 flip-flops) runs 5+3, 9−4, a countdown, a sum and Fibonacci 1…144 | `python3 cpu/run_cpu.py` | <1 s | push |
+| SAP-2 (18,895 NAND + 2,118 flip-flops, memory included) runs multiply, divide, GCD, Fibonacci, primes and a bubble sort | `python3 cpu/run_sap2.py` | 25 s | push |
+| The browser engines match the Python netlists on every register, every cycle | `python3 cpu/test_js_parity.py` | 30 s | push |
+| A full adder, a 4-bit counter and a D flip-flop, compiled to raw Wireworld, match the netlist on every clock | `python3 cpu/test_wwcompile.py`, `cpu/test_dff.py` | 3 s | push |
+| The 18-tile Wireworld library: exact timing, truth tables, no backflow, all 8 orientations | `python3 cpu/wwtiles.py` | 1 s | push |
+| Act VIII's gates, read from `index.html`, match their truth tables | `python3 cpu/test_toy_gates.py` | 1 s | push |
+| Glider gates, Snark, duplicator, a timed crossing, a routed NOR | `python3 verify.py --fast` | — | push |
+| A routed half-adder in Life; sums to 682+341 with the half-adder run per bit | `python3 glider-logic/ha_adder.py` | ~3 min | nightly |
+| Carlini's 137,712-cell glider adder computes 6+5=11 here (pattern pinned by sha256) | `python3 glider-logic/carlini_adder.py` | ~1 min | nightly |
+| Every check above fails when the thing it checks is broken | `python3 verify.py --falsify --nightly` | ~20 min | nightly |
+
+The counts come from `python3 verify.py --stats`, and `tests/test_numbers.py`
+fails if any page quotes a different number.
+
+What the Wireworld compiler does and does not do yet is in
+[cpu/README.md](cpu/README.md); the glider build's results and walls are in
+[docs/glider-findings.md](docs/glider-findings.md).
+
+## Run it
+
+```bash
+open index.html
+```
+
+Or serve the folder (`python3 -m http.server`) and open it. All pages are single
+HTML files with inline CSS and JS.
+
+## Controls
+
+- **Acts:** the tabs, or keys `1`–`8`.
+- **Transport:** Play/Pause (`space`), Step, Reset, Speed.
+- **Camera:** scroll or pinch to zoom, drag to pan; `F` fits the world, `+`/`−` zoom, arrow keys pan.
+- **Per act:** presets under each act; Acts II, IV and V also paint with the mouse
+  (switch to ✎ Paint).
+
+## How it is built
+
+One engine with shared grid buffers; only each act's `step*()` and `seed*()`
+differ. The world is wider than the screen and rendered once per frame to an
+offscreen canvas, then drawn through a single camera transform with a light
+bloom pass. In Act III, the coupling between ant and field is one function,
+`coupling()`:
 
 ```js
 ant.dir += alive ? 1 : 3;   // turn right on a live cell, left on a dead one
 ```
 
-…which *is* Langton's "turn right on one color, left on the other" — except the
-"color" is Conway's life-state. The moving-head automaton and the field automaton
-are reading the same bit.
-
-## Run it
-
-It's a single self-contained HTML file. Any of:
-
-```bash
-open index.html
-# or serve it
-python3 -m http.server 8000   # then visit http://localhost:8000
-```
-
-No build, no dependencies, no network — all CSS/JS is inline and the visuals are
-pure `<canvas>`.
-
-## A world bigger than the screen
-
-The simulation runs on a world **several times wider than the viewport** (a fixed
-cell budget caps total work, so the world grows *wider*, not denser), so there's far
-more universe off-screen than you can see at once. A camera lets you roam it:
-
-- **Scroll / pinch** to zoom toward the cursor; **drag** to pan.
-- Zoom cluster (bottom-left): `−` / `+`, **⤢ Fit** (`F`) to frame the whole world, and a **✋ Pan / ✎ Paint** toggle.
-- Keys: `F` fit, `+` / `−` zoom, arrow keys pan.
-- Rendering uses an **offscreen "world" canvas** drawn once per frame at native
-  resolution, then blitted to the screen through a single camera transform — so the
-  five simulations never need to know the camera exists.
-
-## Controls
-
-- **Acts** — switch live with the tabs, or press `1`–`5`.
-- **Transport** — Play/Pause (`space`), Step, Reset, Speed.
-- **Act I** — editable turmite `Rule` string; **⏭ to highway** fast-forwards to the brink; up to 8 interacting ants.
-- **Act II** — seed presets, or switch to **✎ Paint** and drag to paint life.
-- **Act III** — ant count, Life tempo, and `plant` vs `toggle` coupling.
-- **Acts IV–V** — presets, or **✎ Paint** to inject reagent / breathe in life.
-
-## Architecture
-
-One engine, shared grid buffers (`state`, `age`, `heat` typed arrays); only the
-`step*()` and `seed*()` functions differ per act. Rendering is `<canvas>` with a
-cheap **bloom** post-process (downscale → blur → additive composite) that turns
-colored squares into glowing energy.
-
-The heart of the hybrid is a single function, `coupling()`, deliberately isolated
-so its rule can be redesigned — that one function defines the entire character of
-Act III.
-
-## Roadmap
-
-Emergence is *rule-dependent*: change the rule, change the miracle. The aliveness ladder
-climbs from mechanical (the ant) → organic (chemistry that grows) → genuinely alive (Lenia).
-Next rungs:
-
-- **A named Lenia bestiary** — hand-placed orbium / creatures with known seeds, so you can watch a single organism swim across an empty field.
-- **True turmites** — an ant with internal states → spiral and fractal builders far beyond `RL`.
-- **Hexagonal / triangular lattices** — the ant on other grids, with new symmetries.
-- **Reaction–diffusion parameter sweep** — a continuous (feed, kill) map to roam the whole Pearson zoo.
-- **Lenia parameter dials** — live μ / σ / kernel controls to discover new life-forms.
+That is Langton's "turn right on one colour, left on the other", with Conway's
+life-state as the colour.
 
 ## License
 
