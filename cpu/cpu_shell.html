@@ -145,7 +145,7 @@
   <div class="head">
     <div>
       <h1>Wireworld · <b>SAP-1</b></h1>
-      <p class="sub">A CPU with 1446 NAND gates &amp; 175 flip-flops — every one a Wireworld cell.</p>
+      <p class="sub">A CPU with 1446 NAND gates &amp; 175 flip-flops in one synchronous netlist.</p>
     </div>
     <div class="grow"></div>
     <label class="field">Program
@@ -215,8 +215,8 @@
     <b>How to read it:</b> exactly one register <span style="color:var(--live)">drives the bus</span> (green)
     while another <span style="color:var(--head)">latches from it</span> (cyan) each clock. The
     <b>ring counter</b> steps T1→T6: T1–T3 fetch every instruction (PC→MAR, PC++, RAM→IR); T4–T6
-    execute it. Nothing here is behavioral — it is 1446 NAND gates and 175 D flip-flops, the two
-    primitives verified in the raw Wireworld rule, wired into one synchronous netlist.
+    execute it. Nothing here is behavioral — it is 1446 NAND gates and 175 D flip-flops wired into
+    one synchronous netlist.
   </p>
 
 <script>

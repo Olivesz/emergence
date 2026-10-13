@@ -1,6 +1,6 @@
 // wwcpu2.js — SAP-2 CPU + assembler, ported from the verified Python (sap2.py,
 // asm2.py, modules.py). Same NAND+DFF netlist; topological single-pass settle so
-// ~4,600 gates run smoothly live. Behavioral 256B RAM spliced in at the clock edge.
+// the whole machine runs live. Memory is gate-level: 256 rows of 8 flip-flops.
 
 class Circuit {
   constructor() { this.vals=[]; this.nands=[]; this.dffs=[]; this._n=0; this._order=null;
@@ -43,7 +43,8 @@ class Circuit {
   get(n){ return this.vals[n]; }
   getbus(b){ let s=0; for(let k=0;k<b.length;k++) s|=(this.vals[b[k]]&1)<<k; return s; }
   setbus(b,val){ for(let k=0;k<b.length;k++) this.vals[b[k]]=(val>>k)&1; }
-  dffsByQ(q){ for(const ff of this.dffs) if(ff.q===q) return ff; throw new Error("no dff"); }
+  dffsByQ(q){ if(!this._byQ||this._byQ.size!==this.dffs.length){ this._byQ=new Map(); for(const ff of this.dffs) this._byQ.set(ff.q,ff); }
+    const ff=this._byQ.get(q); if(!ff) throw new Error("no dff"); return ff; }
 }
 
 // ---- datapath helpers ----
@@ -123,14 +124,22 @@ const DRIVERS=["PCo","MDRo","Ao","Bo","ALUo","RAMo","SPo","INo"];
 class SAP2 {
   constructor(program, inval=0){
     const c=this.c=new Circuit();
-    this.RAM=(program||[]).slice(); while(this.RAM.length<256) this.RAM.push(0);
+    const prog=(program||[]).slice(); while(prog.length<256) prog.push(0);
     this.in_val=inval&0xFF;
     const raw=(init=0)=>c.dff(c.GND,c.GND,null,init);
     const b8=(init=0)=>{const a=[]; for(let k=0;k<8;k++) a.push(raw((init>>k)&1)); return a;};
     this.A=b8(); this.B=b8(); this.MAR=b8(); this.PC=b8(); this.IR=b8(); this.MDR=b8();
     this.SP=b8(0xFF); this.Zf=raw(); this.Cf=raw(); this.Sf=raw();
     this.Tc=[raw(),raw(),raw()];
-    this.ram_out=c.bus(8); this.in_nets=c.bus(8);
+    // memory: 256 rows of 8 flip-flops, preloaded with the program image
+    this.RAMQ=[]; for(let w=0;w<256;w++){ const row=[]; for(let b=0;b<8;b++) row.push(raw((prog[w]>>b)&1)); this.RAMQ.push(row); }
+    const memsel=decoder(c,this.MAR);
+    this.ram_out=muxOnehot(c,memsel,this.RAMQ);
+    this.in_nets=c.bus(8);
+    const RQ=this.RAMQ;
+    this.RAM=new Proxy({},{   // cpu.RAM[a] reads or writes memory row a's flip-flops
+      get:(t,k)=>k==="length"?256:(typeof k==="string"&&/^\d+$/.test(k)?c.getbus(RQ[+k]):undefined),
+      set:(t,k,v)=>{ c.setbus(RQ[+k],v&0xFF); c.settle(); return true; }});
     const stepline=decoder(c,this.Tc);
     const opmatch={}; for(const nm in OPS) opmatch[nm]=matchConst(c,this.IR,OPS[nm]);
     const condnet={Z:this.Zf,nZ:c.not_(this.Zf),C:this.Cf,nC:c.not_(this.Cf)};
@@ -173,14 +182,11 @@ class SAP2 {
     }
     wire(this.Zf,aluZ,sig["FL"]); wire(this.Cf,aluC,sig["FL"]); wire(this.Sf,aluS,sig["FL"]);
     for(let b=0;b<3;b++) wire(this.Tc[b],c.mux2(sig["NI"],tInc[b],c.GND),c.VCC);
+    for(let w=0;w<256;w++){ const wen=c.and_(sig["RAMw"],memsel[w]); for(let b=0;b<8;b++) wire(RQ[w][b],bus[b],wen); }
     this.O=[]; for(let k=0;k<8;k++) this.O.push(c.dff(bus[k],sig["OUTi"],null,0));
     c.settle();
   }
-  _refresh(){ const addr=this.c.getbus(this.MAR); this.c.setbus(this.ram_out,this.RAM[addr]);
-    this.c.setbus(this.in_nets,this.in_val); }
-  step(){ const c=this.c; this._refresh(); c.settle();
-    const we=c.get(this.RAMw), addr=c.getbus(this.MAR), data=c.getbus(this.bus);
-    c.commitDffs(); if(we) this.RAM[addr]=data&0xFF; this._refresh(); c.settle(); }
+  step(){ const c=this.c; c.setbus(this.in_nets,this.in_val); c.settle(); c.commitDffs(); c.settle(); }
   tstate(){ return this.c.getbus(this.Tc); }
   opcode(){ return this.c.getbus(this.IR); }
   activeSignals(){ return SIGNALS.filter(s=>this.c.get(this.sig[s])); }

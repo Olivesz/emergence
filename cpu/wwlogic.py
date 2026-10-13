@@ -28,7 +28,7 @@ mirroring a real standard-cell library.
 
 class Circuit:
     def __init__(self):
-        self.vals = {}          # net id -> 0/1
+        self.vals = []          # net id -> 0/1
         self.nands = []         # (out, a, b)
         self.dffs = []          # dict: q, d, en, clr, init
         self._n = 0
@@ -40,7 +40,7 @@ class Circuit:
     # --- net creation -----------------------------------------------------
     def net(self, init=0):
         i = self._n; self._n += 1
-        self.vals[i] = init
+        self.vals.append(init)
         return i
 
     def bus(self, width, init=0):
@@ -128,31 +128,30 @@ class Circuit:
                         state[idx] = 2
                         order.append(idx)
         self._order = order
+        self._seq = [self.nands[i] for i in order]
 
     def settle(self, max_iter=None):
         if self._order is None:
             self._build_order()
         v = self.vals
         v[self.GND] = 0; v[self.VCC] = 1     # pin constants
-        nands = self.nands
-        for idx in self._order:
-            o, a, b = nands[idx]
-            v[o] = 0 if (v[a] and v[b]) else 1
+        for o, a, b in self._seq:
+            v[o] = 1 - (v[a] & v[b])
 
     def commit_dffs(self):
         """Sample every DFF's D (assumes combinational already settled) and commit
-           all Q's simultaneously — the clock edge, with no settle of its own.
-           Exposed so a machine can splice behavioral memory in at the edge."""
+           all Q's simultaneously — the clock edge, with no settle of its own."""
         v = self.vals
         nxt = []
         for ff in self.dffs:
-            if ff['clr'] is not None and v[ff['clr']]:
+            q, d, en, clr = ff['q'], ff['d'], ff['en'], ff['clr']
+            if clr is not None and v[clr]:
                 nv = 0
-            elif ff['en'] is not None and not v[ff['en']]:
-                nv = v[ff['q']]                 # hold
+            elif en is not None and not v[en]:
+                continue                        # hold
             else:
-                nv = v[ff['d']]
-            nxt.append((ff['q'], nv))
+                nv = v[d]
+            nxt.append((q, nv))
         for q, nv in nxt:
             v[q] = nv
 

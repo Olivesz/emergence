@@ -55,8 +55,10 @@ def expected():
                                 trace=py_trace(SAP1(img), K1, 3000)))
     for name, src in SAP2_PROGS:
         img, _ = assemble2(src)
-        out["sap2"].append(dict(name=name, src=src, image=img,
-                                trace=py_trace(SAP2(img), K2, 200000)))
+        cpu = SAP2(img)
+        tr = py_trace(cpu, K2, 200000)
+        out["sap2"].append(dict(name=name, src=src, image=img, trace=tr,
+                                ram=[cpu.RAM[a] for a in range(256)]))
     return out
 
 
@@ -79,7 +81,10 @@ INPUT.sap1.forEach(function (p) {
 });
 INPUT.sap2.forEach(function (p) {
   var img = E2.assemble2(p.src).image;
-  result.sap2.push({ name: p.name, image: img, trace: trace(new E2.SAP2(img), K2, 200000) });
+  var cpu = new E2.SAP2(img);
+  var tr = trace(cpu, K2, 200000);
+  var ram = []; for (var a = 0; a < 256; a++) ram.push(cpu.RAM[a]);
+  result.sap2.push({ name: p.name, image: img, trace: tr, ram: ram });
 });
 say(JSON.stringify(result));
 """
@@ -132,12 +137,15 @@ def main():
             wt = [[int(x) for x in row] for row in w["trace"]]
             same_img = list(g["image"])[:len(w["image"])] == list(w["image"]) and \
                 not any(list(g["image"])[len(w["image"]):])
-            same = same_img and gt == wt
+            same = same_img and gt == wt and g.get("ram") == w.get("ram")
             first = next((i for i, (a, b) in enumerate(zip(wt, gt)) if a != b), None)
             note = "" if same else (f" (image differs)" if not same_img else
                                     f" (first divergence at cycle {first if first is not None else min(len(wt), len(gt))})")
+            extra = ", final 256-byte memory identical" if "ram" in w and same else ""
+            if "ram" in w and g.get("ram") != w.get("ram"):
+                note += " (final memory differs)"
             print(f"  [{'PASS' if same else 'FAIL'}] {machine} {w['name']}: "
-                  f"{len(wt)} cycles identical{note}")
+                  f"{len(wt)} cycles identical{extra}{note}")
             ok &= same
     print("ALL PASS" if ok else "SOME FAILED")
     return 0 if ok else 1

@@ -12,7 +12,7 @@ from verify import stats
 # (file, regex with one group per stat, stat keys)
 QUOTES = [
     ("cpu/README.md", r"\*\*([\d,]+) NAND gates \+ ([\d,]+) flip-flops\*\*", ["sap1_nand", "sap1_dff"]),
-    ("cpu/README.md", r"NAND\+DFF \(([\d,]+) gates\)", ["sap2_nand"]),
+    ("cpu/README.md", r"\*\*([\d,]+) NAND gates \+ ([\d,]+)\nflip-flops\*\*", ["sap2_nand", "sap2_dff"]),
     ("cpu/cpu.html", r"A CPU with ([\d,]+) NAND gates &amp; ([\d,]+) flip-flops", ["sap1_nand", "sap1_dff"]),
     ("cpu/cpu.html", r"it is ([\d,]+) NAND gates and ([\d,]+) D flip-flops", ["sap1_nand", "sap1_dff"]),
     ("cpu/cpu2.html", r"from ([\d,]+) NAND gates &amp; ([\d,]+) flip-flops", ["sap2_nand", "sap2_dff"]),

@@ -78,9 +78,10 @@ store (a PLA generated from a microcode table), so a rich instruction set fits.
 - **a stack** (`SP`) with **`CALL`/`RET`/`PUSH`/`POP`** → subroutines & recursion
 - **I/O**: a live `IN` register and a **memory-mapped display** at `0xF0–0xFF`
 
-The CPU logic stays gate-level NAND+DFF (4,575 gates); the 256-byte main store is a
-memory array spliced in at the clock edge (SAP-1 already proved RAM is buildable
-cell-for-cell — replicating it 256× just slows the sim).
+Memory included, the whole machine is one netlist of **18,895 NAND gates + 2,118
+flip-flops**: the 256-byte store is 256 rows of 8 flip-flops behind an 8-to-256
+decoder, built the same way as SAP-1's 16 words. Only the `IN` port is driven
+from outside.
 
 Real algorithms, all self-checked in `run_sap2.py`:
 

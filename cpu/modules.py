@@ -142,10 +142,10 @@ def ram(c, addr, data_in, write, width, clr=None, init=None):
 
 # small helper on Circuit: find a dff record by its q net (for two-phase wiring)
 def _dffs_by_q(self, q):
-    for ff in self.dffs:
-        if ff['q'] == q:
-            return ff
-    raise KeyError(q)
+    idx = self.__dict__.get("_byq")
+    if idx is None or len(idx) != len(self.dffs):
+        idx = self._byq = {ff['q']: ff for ff in self.dffs}
+    return idx[q]
 Circuit.dffs_by_q = _dffs_by_q
 
 

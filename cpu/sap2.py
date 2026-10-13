@@ -10,15 +10,29 @@ all of its logic. Extends SAP-1 with:
   * a stack (SP) with CALL/RET/PUSH/POP  -> subroutines & recursion
   * I/O: an INPUT register you set live, plus a memory-mapped display region
 
-Modeling note (honest): the CPU proper — registers, ALU, flags, the whole
-control unit — is gate-level NAND+DFF exactly like SAP-1. The 256-byte *main
-store* is kept as a memory array spliced in at the clock edge (read = combinational
-from MAR, write = on the edge). SAP-1 already proved RAM can be built cell-for-cell
-from DFF rows; replicating that 256x is mechanical and only slows the sim, so here
-the interesting part stays gate-level and memory stays fast.
+Memory is gate-level too, built the way SAP-1's is: 256 rows of 8 flip-flops,
+an 8-to-256 address decoder, a write enable per row, and a read multiplexer.
+The only value fed in from outside the netlist is the 8-bit IN port.
 """
 from wwlogic import Circuit
 from modules import (reg, alu, decoder, mux_onehot, add_sub, match_const, ALU_OPS)
+
+
+class _RamView:
+    """cpu.RAM[a]: reads or writes the eight flip-flops of memory row a."""
+
+    def __init__(self, cpu):
+        self.cpu = cpu
+
+    def __getitem__(self, a):
+        return self.cpu.c.getbus(self.cpu.RAMQ[a])
+
+    def __setitem__(self, a, v):
+        self.cpu.c.setbus(self.cpu.RAMQ[a], v & 0xFF)
+        self.cpu.c.settle()
+
+    def __len__(self):
+        return 256
 
 # ---------------- instruction set -----------------
 OPS = {
@@ -99,8 +113,8 @@ class SAP2:
 
     def __init__(self, program=None, inval=0):
         c = self.c = Circuit()
-        self.RAM = list(program or [])
-        self.RAM += [0] * (256 - len(self.RAM))
+        prog = list(program or [])
+        prog += [0] * (256 - len(prog))
         self.in_val = inval & 0xFF
 
         raw = lambda init=0: c.dff(c.GND, en=c.GND, init=init)
@@ -108,8 +122,12 @@ class SAP2:
         self.A=b8(); self.B=b8(); self.MAR=b8(); self.PC=b8(); self.IR=b8()
         self.MDR=b8(); self.SP=b8(self.STACK_TOP)
         self.Zf=raw(); self.Cf=raw(); self.Sf=raw()
-        # behavioral-memory interface nets (inputs to the netlist)
-        self.ram_out = c.bus(8)
+        # memory: 256 rows of 8 flip-flops, preloaded with the program image
+        self.RAMQ = [[raw((prog[w] >> b) & 1) for b in range(8)] for w in range(256)]
+        self.RAM = _RamView(self)
+        memsel = decoder(c, self.MAR)                       # one line per row
+        self.ram_out = mux_onehot(c, memsel, self.RAMQ)     # read the addressed row
+        # the IN port: the one input driven from outside
         self.in_nets = c.bus(8)
 
         # ---- step counter value (encode one-hot? no — keep a 3-bit counter) ----
@@ -192,6 +210,11 @@ class SAP2:
         wire(self.Zf, aluZ, sig["FL"]); wire(self.Cf, aluC, sig["FL"]); wire(self.Sf, aluS, sig["FL"])
         for b in range(3):
             wire(self.Tc[b], c.mux2(sig["NI"], t_inc[b], c.GND), c.VCC)
+        # memory write: only the addressed row, only on RAMw
+        for w in range(256):
+            wen = c.and_(sig["RAMw"], memsel[w])
+            for b in range(8):
+                wire(self.RAMQ[w][b], bus[b], wen)
 
         # OUT register (a real gate-level register) — output-enable never drives bus
         self.O = [c.dff(bus[k], en=sig["OUTi"], init=0) for k in range(8)]
@@ -199,19 +222,10 @@ class SAP2:
         self.stepline = stepline
         c.settle()
 
-    # ---------- behavioral memory splice ----------
-    def _refresh(self):
-        addr = self.c.getbus(self.MAR)
-        self.c.setbus(self.ram_out, self.RAM[addr])
-        self.c.setbus(self.in_nets, self.in_val)
-
+    # ---------- clocking ----------
     def step(self):
-        c = self.c
-        self._refresh(); c.settle()
-        we  = c.get(self.RAMw); addr = c.getbus(self.MAR); data = c.getbus(self.bus)
-        c.commit_dffs()
-        if we: self.RAM[addr] = data & 0xFF
-        self._refresh(); c.settle()
+        self.c.setbus(self.in_nets, self.in_val)
+        self.c.tick()
 
     # ---------- introspection ----------
     def tstate(self): return self.c.getbus(self.Tc)
