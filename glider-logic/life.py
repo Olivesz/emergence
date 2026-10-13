@@ -141,3 +141,4 @@ if __name__ == "__main__":
     globals()['EATER_OFFSET'] = found
 
     print("\nALL PASS" if ok else "\nSOME FAILED")
+    raise SystemExit(0 if ok else 1)

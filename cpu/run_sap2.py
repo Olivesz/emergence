@@ -239,3 +239,4 @@ if __name__ == "__main__":
     ok &= check("primes < 20", PRIMES, [2,3,5,7,11,13,17,19])
     ok &= check("bubble sort", SORT, [1,2,3,5,8,9])
     print("\n" + ("ALL PASS" if ok else "SOME FAILED"))
+    raise SystemExit(0 if ok else 1)

@@ -5,10 +5,10 @@ ww_cells.py — Wireworld standard-cell verification for the Emergence CPU (Act 
 Self-contained: run `python3 ww_cells.py`. No imports beyond the stdlib.
 
 Two clocked logic cells are built and verified by direct simulation of the
-exact Wireworld rule (engine copied verbatim from cpu.py):
+exact Wireworld rule (the reference `step` below):
 
   CELL 1 — NAND.
-    A 5-cell corner-fed junction (same family as the finalAND.py F-junction):
+    A 5-cell corner-fed junction:
     center J with four diagonal ports. A real clock loop (circulating
     electron, period P) drives a tap wire into the NW port; inputs A and B
     are pulses injected in phase with the clock into the NE and SW ports;
@@ -18,9 +18,8 @@ exact Wireworld rule (engine copied verbatim from cpu.py):
     This IS the "clock-fed suppression junction": NAND in a single stage.
 
   CELL 2 — 1-bit register / D-latch cell (loop storage).
-    The verified writable register from cpu.py reg_test (loop + SET wire
-    + left-edge vertical diode + non-destructive read tap), extended with
-    a CLEAR junction: the right edge of the loop makes a 1-cell "V-jog"
+    A writable loop register (loop + SET wire + left-edge vertical diode
+    + non-destructive read tap), with a CLEAR junction: the right edge of the loop makes a 1-cell "V-jog"
     through a junction cell J (in -> J -> out, diagonal jog). All of J's
     east neighbours are exterior, and the two cells (W+2,K-1),(W+2,K) are
     adjacent to J and to NOTHING else on the loop — so a 2-wide clear wire
@@ -34,7 +33,7 @@ Every claim below is verified by simulation and printed as PASS/FAIL.
 """
 
 # ----------------------------------------------------------------------
-# Wireworld engine — reference implementation copied verbatim from cpu.py
+# Wireworld engine — reference implementation of the rule
 # ----------------------------------------------------------------------
 def step(W, H, g):
     n = [0] * (W * H)
@@ -81,7 +80,7 @@ class Sim:
 
     def inject(self, x, y):
         """Place a lone electron head on a conductor cell (dead-end launch,
-        exactly as cpu.py set_test/reg_test do)."""
+        the way the SET and CLEAR wires are driven below)."""
         i = y * self.W + x
         if self.g[i] == 3:
             self.g[i] = 1
@@ -109,7 +108,7 @@ class Sim:
 
 
 # ----------------------------------------------------------------------
-# Grid construction helpers (copied from cpu.py)
+# Grid construction helpers
 # ----------------------------------------------------------------------
 class G:
     def __init__(s): s.c = set()
@@ -371,7 +370,7 @@ def verify_reg(results):
 # ======================================================================
 if __name__ == "__main__":
     print("=" * 70)
-    print("Wireworld standard-cell verification (engine: exact cpu.py rule)")
+    print("Wireworld standard-cell verification (engine: reference rule)")
     print("=" * 70)
     results = []
 
@@ -395,3 +394,4 @@ if __name__ == "__main__":
         for f in fails: print("  -", f)
     else:
         print("ALL PASS")
+    raise SystemExit(1 if fails else 0)

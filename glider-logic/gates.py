@@ -261,3 +261,4 @@ if __name__ == "__main__":
         check(f"   {x} + {y} = {rr}", rr == x + y)
 
     print("\nALL PASS" if ok else "\nSOME FAILED")
+    raise SystemExit(0 if ok else 1)

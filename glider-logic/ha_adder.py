@@ -78,7 +78,8 @@ def main():
         print(f"  {a} + {b} = {got} (want {want}) [{w}-bit] {'OK' if ok else 'FAIL'}", flush=True)
     print("\nRIPPLE ADDER (routed cells, raw rule):", "PASS" if (allok and mok) else "FAIL")
     lap("done")
+    return allok and mok
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(0 if main() else 1)

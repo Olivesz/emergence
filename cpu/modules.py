@@ -214,3 +214,4 @@ if __name__ == "__main__":
     check("RAM neighbour untouched", c.getbus(rd) == prog[6])
 
     print("\nALL PASS" if ok else "\nSOME FAILED")
+    raise SystemExit(0 if ok else 1)
