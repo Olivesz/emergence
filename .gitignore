@@ -17,9 +17,6 @@ __pycache__/
 glider-logic/carlini_adder.mc
 glider-logic/carlini_adder.rle
 
-# Local dev config
-.claude/
-CLAUDE.md
 
 # Body-only page builds (regenerated locally; not needed in-repo)
 *_artifact.html
